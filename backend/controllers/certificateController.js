@@ -227,8 +227,8 @@ exports.generateCertificate = async (req, res) => {
     })
 
     // "Certificate" — image replacing the text, same size & position as the original font
-    const certImgW = 280 // matches approx width of "Certificate" at fontSize 54
-    const certImgH = 60 // matches approx height of fontSize 54 text
+    const certImgW = 210 // matches approx width of "Certificate" at fontSize 54
+    const certImgH = 45 // matches approx height of fontSize 54 text
     safeImage(
       doc,
       ip('cert-removebg-preview.png'),
@@ -240,7 +240,7 @@ exports.generateCertificate = async (req, res) => {
     // ── 7. CONTENT BOX ───────────────────────────────────────────────────────
     const certLineY = midY + 80
     const BX = 40,
-      BY = certLineY + 40,
+      BY = certLineY + 30,
       BW = W - 80,
       BH = 236
 
@@ -367,11 +367,12 @@ exports.generateCertificate = async (req, res) => {
     doc.text('for a Duration of', forX, R5Y, { lineBreak: false })
     const forW = doc.widthOfString('for a Duration of')
 
-    // duration underline + value centered on it
+    // duration underline + value centered on it — extend to right edge
     const durULX = forX + forW + 8
-    hRule(doc, durULX, R5Y + 18, durULX + durULW, 0.8, GREY)
+    hRule(doc, durULX, R5Y + 18, IR, 0.8, GREY)
     doc.font('Helvetica-Bold').fontSize(12).fillColor(DARK)
-    doc.text(durVal, durULX, R5Y + 2, {
+    const durCenterX = (durULX + IR) / 2 // center of the underline
+    doc.text(durVal, durCenterX - durULW / 2, R5Y + 2, {
       width: durULW,
       align: 'center',
       lineBreak: false,
@@ -465,7 +466,7 @@ exports.generateCertificate = async (req, res) => {
     doc.restore()
 
     // AICE circular stamp — resized to perfect square via sharp to avoid oval distortion
-    const sealSize = 105
+    const sealSize = 140
     const sealPath = ip('seal-removebg-preview.png')
     const sealBuffer = fs.existsSync(sealPath)
       ? await sharp(sealPath)
@@ -477,8 +478,8 @@ exports.generateCertificate = async (req, res) => {
           .png()
           .toBuffer()
       : null
-    const sealX = pX + pW - sealSize / 2 // overlaps right edge of photo
-    const sealY = pY + pH - sealSize / 2 - 20 // overlaps bottom, shifted up
+    const sealX = pX + pW - sealSize / 1.7 // overlaps right edge of photo
+    const sealY = pY + pH - sealSize / 2 - 30 // overlaps bottom, shifted up
     if (sealBuffer) {
       safeImage(doc, sealBuffer, sealX, sealY, {
         width: sealSize,
