@@ -111,8 +111,7 @@ studentSchema.pre('save', function(next) {
     this.courseEndDate = end;
   }
 
-  // Certificate eligibility - TESTING MODE: no course completion required (Issue #8)
-  // Only requires: full payment + profile complete (all 3 docs uploaded)
+  // Certificate eligibility: full payment + all 3 documents uploaded
   this.certificateEligible = (this.pendingFees === 0 && this.profileComplete);
 
   next();
