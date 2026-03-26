@@ -70,10 +70,14 @@ exports.validateCoupon = async (req, res) => {
 // Get all active discounts for dropdown (Issue #4)
 exports.getActiveDiscounts = async (req, res) => {
   try {
-    const discounts = await Discount.find({ isActive: true }).sort('-createdAt');
-    // Filter using isValid() method
-    const valid = discounts.filter(d => d.isValid());
-    res.json(valid);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const discounts = await Discount.find({
+      isActive: true,
+      validFrom: { $lte: today },
+      validTill: { $gte: today }
+    }).sort('-createdAt');
+    res.json(discounts);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

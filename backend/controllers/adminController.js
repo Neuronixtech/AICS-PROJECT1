@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Student = require('../models/Student');
 const Course = require('../models/Course');
+const Enquiry = require('../models/Enquiry');
 
 // @desc    Add staff member
 // @route   POST /api/admin/staff
@@ -76,7 +77,7 @@ exports.removeStaff = async (req, res) => {
 // @access  Private/Admin
 exports.getFeesOverview = async (req, res) => {
   try {
-    const students = await Student.find({ status: 'enrolled' });
+    const students = await Student.find({ status: 'active' });
 
     const totalFees = students.reduce((sum, student) => sum + student.totalFees, 0);
     const totalPaid = students.reduce((sum, student) => sum + student.paidFees, 0);
@@ -98,21 +99,25 @@ exports.getFeesOverview = async (req, res) => {
 // @access  Private/Admin
 exports.getDashboardStats = async (req, res) => {
   try {
-    const totalEnquiries = await Student.countDocuments({ status: 'enquiry' });
-    const totalEnrolled = await Student.countDocuments({ status: 'enrolled' });
-    const totalStaff = await User.countDocuments({ role: 'staff', isActive: true });
-    const totalCourses = await Course.countDocuments({ isActive: true });
+    const [totalEnrolled, totalStaff, totalCourses, newEnquiries, certEligible, students] = await Promise.all([
+      Student.countDocuments({ status: 'active' }),
+      User.countDocuments({ role: 'staff', isActive: true }),
+      Course.countDocuments({ isActive: true }),
+      Enquiry.countDocuments({ status: 'new' }),
+      Student.countDocuments({ status: 'active', certificateEligible: true, certificateIssued: { $ne: true } }),
+      Student.find({ status: 'active' }, 'totalFees paidFees pendingFees')
+    ]);
 
-    const students = await Student.find({ status: 'enrolled' });
-    const totalFees = students.reduce((sum, student) => sum + student.totalFees, 0);
-    const totalCollected = students.reduce((sum, student) => sum + student.paidFees, 0);
-    const totalPending = students.reduce((sum, student) => sum + student.pendingFees, 0);
+    const totalFees = students.reduce((sum, s) => sum + s.totalFees, 0);
+    const totalCollected = students.reduce((sum, s) => sum + s.paidFees, 0);
+    const totalPending = students.reduce((sum, s) => sum + s.pendingFees, 0);
 
     res.json({
-      enquiries: totalEnquiries,
       enrolled: totalEnrolled,
       staff: totalStaff,
       courses: totalCourses,
+      newEnquiries,
+      certEligible,
       fees: {
         total: totalFees,
         collected: totalCollected,
@@ -129,9 +134,9 @@ exports.getDashboardStats = async (req, res) => {
 // @access  Private/Admin
 exports.getEnquiries = async (req, res) => {
   try {
-    const enquiries = await Student.find({ status: 'enquiry' })
-      .populate('course', 'name')
-      .populate('addedBy', 'name')
+    const enquiries = await Enquiry.find({})
+      .populate('interestedCourse', 'name')
+      .populate('createdBy', 'name')
       .sort('-createdAt');
     res.json(enquiries);
   } catch (error) {
@@ -144,7 +149,7 @@ exports.getEnquiries = async (req, res) => {
 // @access  Private/Admin
 exports.getEnrolledStudents = async (req, res) => {
   try {
-    const students = await Student.find({ status: 'enrolled' })
+    const students = await Student.find({ status: 'active' })
       .populate('course', 'name')
       .populate('addedBy', 'name')
       .sort('-enrollmentDate');

@@ -78,7 +78,7 @@ exports.generateCertificate = async (req, res) => {
         pendingAmount: student.pendingFees,
       })
 
-    const certsDir = path.join(__dirname, '..', 'certificates')
+    const certsDir = path.join(__dirname, '..', '..', 'uploads', 'certificates')
     if (!fs.existsSync(certsDir)) fs.mkdirSync(certsDir, { recursive: true })
 
     let certNum = student.certificateNumber
