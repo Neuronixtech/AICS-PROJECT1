@@ -3,6 +3,7 @@ const Counter = require('../models/Counter')
 const PDFDocument = require('pdfkit')
 const fs = require('fs')
 const path = require('path')
+const sharp = require('sharp')
 
 const ASSETS = path.join(__dirname, '..', 'assets')
 const RES = path.join(ASSETS, 'cert_resources')
@@ -30,13 +31,19 @@ function resolvePhotoPath(s) {
   return null
 }
 function safeImage(doc, file, x, y, opts) {
-  if (file && fs.existsSync(file)) {
-    try {
+  // accepts either a file path (string) or a pre-loaded Buffer
+  if (!file) return false
+  try {
+    if (Buffer.isBuffer(file)) {
       doc.image(file, x, y, opts)
       return true
-    } catch (e) {
-      console.error('img', e.message)
     }
+    if (fs.existsSync(file)) {
+      doc.image(file, x, y, opts)
+      return true
+    }
+  } catch (e) {
+    console.error('img', e.message)
   }
   return false
 }
@@ -60,7 +67,7 @@ exports.generateCertificate = async (req, res) => {
   try {
     const student = await Student.findById(req.params.studentId).populate(
       'course',
-      'name duration subjects',
+      'name duration subjects description',
     )
     if (!student) return res.status(404).json({ message: 'Student not found' })
     if (student.status !== 'active')
@@ -71,7 +78,7 @@ exports.generateCertificate = async (req, res) => {
         pendingAmount: student.pendingFees,
       })
 
-    const certsDir = path.join(__dirname, '..', 'certificates')
+    const certsDir = path.join(__dirname, '..', '..', 'uploads', 'certificates')
     if (!fs.existsSync(certsDir)) fs.mkdirSync(certsDir, { recursive: true })
 
     let certNum = student.certificateNumber
@@ -131,6 +138,9 @@ exports.generateCertificate = async (req, res) => {
       align: 'center',
       lineBreak: false,
     })
+    const aiceTxt = 'AICE Society'
+    const aiceTextW = doc.widthOfString(aiceTxt)
+    hRule(doc, W / 2 - aiceTextW / 2, 26, W / 2 + aiceTextW / 2, 0.8, DARK)
 
     // "Regd. By Govt of Karnataka" — red, underlined
     doc.font('Helvetica-Bold').fontSize(12).fillColor(BLUE)
@@ -183,7 +193,7 @@ exports.generateCertificate = async (req, res) => {
       doc,
       ip('aice_logo_full-removebg-preview.png'),
       W / 2 - aiceW / 2,
-      logoY + 60, // ← Change this number to move it down (increase) or up (decrease)
+      logoY + 50, // ← Change this number to move it down (increase) or up (decrease)
       { width: aiceW, height: aiceH },
     )
 
@@ -206,64 +216,36 @@ exports.generateCertificate = async (req, res) => {
     const midY = logoEnd + 6 // ~180
 
     // KSDC — left, larger to match reference
-    safeImage(doc, ip('ksdc_logo.png'), 14, midY + 20, {
+    safeImage(doc, ip('ksdc_logo.png'), 14, midY + 15, {
       width: 108,
       height: 68,
       fit: [108, 68],
     })
 
     // NSDC — right, larger to match reference
-    safeImage(doc, ip('nsdc_logo.png'), W - 124, midY + 20, {
+    safeImage(doc, ip('nsdc_logo.png'), W - 124, midY + 15, {
       width: 110,
       height: 62,
       fit: [110, 62],
     })
 
-    // Ornamental scrollwork (center)
-    // const ornY = midY + 14
-    // hRule(doc, W / 2 - 128, ornY, W / 2 - 52, 0.8, GOLD)
-    // hRule(doc, W / 2 + 52, ornY, W / 2 + 128, 0.8, GOLD)
-    // doc.lineWidth(1.3).strokeColor(GOLD)
-    // doc
-    //   .moveTo(W / 2 - 52, ornY)
-    //   .bezierCurveTo(
-    //     W / 2 - 36,
-    //     ornY - 10,
-    //     W / 2 - 18,
-    //     ornY - 6,
-    //     W / 2 - 8,
-    //     ornY,
-    //   )
-    //   .bezierCurveTo(W / 2 - 2, ornY + 4, W / 2, ornY + 6, W / 2, ornY)
-    //   .bezierCurveTo(W / 2, ornY - 6, W / 2 + 2, ornY - 3, W / 2 + 8, ornY)
-    //   .bezierCurveTo(
-    //     W / 2 + 18,
-    //     ornY - 6,
-    //     W / 2 + 36,
-    //     ornY - 10,
-    //     W / 2 + 52,
-    //     ornY,
-    //   )
-    //   .stroke()
-
-    // "Certificate" — large Times-BoldItalic, centred
-    doc.font('Times-BoldItalic').fontSize(54).fillColor(DARK)
-    doc.text('Certificate', 0, midY + 60, {
-      width: W,
-      align: 'center',
-      lineBreak: false,
-    })
-
-    // Double gold rule
-    const certLineY = midY + 80
-    // hRule(doc, W / 2 - 172, certLineY, W / 2 + 172, 3.0, GOLD)
-    // hRule(doc, W / 2 - 172, certLineY + 4, W / 2 + 172, 0.7, GOLD)
+    // "Certificate" — image replacing the text, same size & position as the original font
+    const certImgW = 210 // matches approx width of "Certificate" at fontSize 54
+    const certImgH = 45 // matches approx height of fontSize 54 text
+    safeImage(
+      doc,
+      ip('cert-removebg-preview.png'),
+      (W - certImgW) / 2, // horizontally centered
+      midY + 40, // same vertical position as the old text (midY + 60 - small offset)
+      { width: certImgW, height: certImgH },
+    )
 
     // ── 7. CONTENT BOX ───────────────────────────────────────────────────────
+    const certLineY = midY + 70
     const BX = 40,
-      BY = certLineY + 40,
+      BY = certLineY + 25,
       BW = W - 80,
-      BH = 236
+      BH = 226
 
     doc.lineWidth(2.5).strokeColor(GOLD).rect(BX, BY, BW, BH).stroke()
 
@@ -281,12 +263,6 @@ exports.generateCertificate = async (req, res) => {
     })
     doc.restore()
 
-    // Top-left: small accreditation text
-    // doc.font('Helvetica-Oblique').fontSize(6.5).fillColor('#888888')
-    // doc.text('Accridated by Govt. of Karanataka and India', BX + 8, BY + 9, {
-    //   lineBreak: false,
-    // })
-
     // Top-right: "This is certify that"
     doc.font('Times-BoldItalic').fontSize(17).fillColor(DARK)
     doc.text('This is certify that', BX + 8, BY + 8, {
@@ -294,8 +270,6 @@ exports.generateCertificate = async (req, res) => {
       align: 'right',
       lineBreak: false,
     })
-
-    // hRule(doc, BX + 6, BY + 28, BX + BW - 6, 0.5, GOLD)
 
     const IL = BX + 12,
       IR = BX + BW - 12,
@@ -318,16 +292,18 @@ exports.generateCertificate = async (req, res) => {
     doc.font('Times-BoldItalic').fontSize(17).fillColor(DARK)
     doc.text(sdTxt, IL, R2Y, { lineBreak: false })
     const sdW = doc.widthOfString(sdTxt)
-    const fatherX = IL + sdW + 14
+    const sdUnderlineX = IL + sdW + 4 // underline starts just after the label
+    // fatherX aligned to nameX so father name starts at same column as student name
+    const fatherX = nameX
     doc.font('Helvetica-Bold').fontSize(13.5).fillColor(DARK)
     doc.text((student.fatherName || '').toUpperCase(), fatherX, R2Y - 1, {
       width: IR - fatherX,
       lineBreak: false,
     })
-    hRule(doc, fatherX, R2Y + 17, IR, 0.8, GREY)
+    hRule(doc, sdUnderlineX, R2Y + 17, IR, 0.8, GREY)
 
     // Row 3: "Has successfully Completed / ~~Undergone~~ the course"
-    const R3Y = R2Y + LH + 4
+    const R3Y = R2Y + LH + 2
     doc.font('Times-BoldItalic').fontSize(16)
     const p1 = 'Has successfully Completed / ',
       p2 = 'Undergone',
@@ -342,18 +318,29 @@ exports.generateCertificate = async (req, res) => {
     cx += uW
     doc.text(p3, cx, R3Y, { lineBreak: false })
 
-    // Row 4: "in" + COURSE NAME
+    // Row 4: "in" + COURSE NAME (course name centered, underline from "in" to right)
     const R4Y = R3Y + LH
+    const courseName = (student.course && student.course.name) || ''
+
+    // Draw "in"
     doc.font('Times-BoldItalic').fontSize(16).fillColor(DARK)
     doc.text('in', IL, R4Y, { lineBreak: false })
     const inW = doc.widthOfString('in')
-    const courseX = IL + inW + 10
+
+    // Center the course name within box
+    doc.font('Helvetica-Bold').fontSize(13)
+    const courseW = doc.widthOfString(courseName)
+    const courseX = BX + (BW - courseW) / 2
+
+    // Draw course name
     doc.font('Helvetica-Bold').fontSize(13).fillColor(DARK)
-    doc.text(student.course.name, courseX, R4Y - 1, {
+    doc.text(courseName, courseX, R4Y - 1, {
       width: IR - courseX,
       lineBreak: false,
     })
-    hRule(doc, courseX, R4Y + 16, IR, 0.8, GREY)
+
+    // Underline from "in" to right edge
+    hRule(doc, IL + inW + 2, R4Y + 16, IR, 0.8, GREY)
 
     // Row 5: From [date] for a Duration of [N months]
     const R5Y = R4Y + LH + 2
@@ -383,11 +370,12 @@ exports.generateCertificate = async (req, res) => {
     doc.text('for a Duration of', forX, R5Y, { lineBreak: false })
     const forW = doc.widthOfString('for a Duration of')
 
-    // duration underline + value centered on it
+    // duration underline + value centered on it — extend to right edge
     const durULX = forX + forW + 8
-    hRule(doc, durULX, R5Y + 18, durULX + durULW, 0.8, GREY)
+    hRule(doc, durULX, R5Y + 18, IR, 0.8, GREY)
     doc.font('Helvetica-Bold').fontSize(12).fillColor(DARK)
-    doc.text(durVal, durULX, R5Y + 2, {
+    const durCenterX = (durULX + IR) / 2 // center of the underline
+    doc.text(durVal, durCenterX - durULW / 2, R5Y + 2, {
       width: durULW,
       align: 'center',
       lineBreak: false,
@@ -422,7 +410,8 @@ exports.generateCertificate = async (req, res) => {
     })
 
     // ── 8. GRADE LEGEND ───────────────────────────────────────────────────────
-    const legendY = BY + BH + 6
+    // ↓ ABSOLUTE — changing this moves the entire bottom zone independently of the content box above
+    const legendY = 507
     doc.font('Helvetica-Bold').fontSize(10).fillColor(DARK)
     doc.text(
       'Grades: 50 to 60-C,  60 to 70-B,  70 to 75-B+,  75 to 85-A,  85 and Above-A+',
@@ -435,10 +424,10 @@ exports.generateCertificate = async (req, res) => {
     const BOT = legendY + 40
 
     // Photo — centred
-    const pW = 110,
-      pH = 138
+    const pW = 100,
+      pH = 125
     const pX = (W - pW) / 2,
-      pY = BOT + 24 // moved up (was BOT + 52)
+      pY = BOT + 90 // moved up (was BOT + 52)
 
     doc.save()
     doc
@@ -450,13 +439,16 @@ exports.generateCertificate = async (req, res) => {
     const photoPath = resolvePhotoPath(student)
     if (photoPath) {
       try {
+        const correctedBuffer = await sharp(photoPath)
+          .rotate()
+          .resize(600, 800, { fit: 'cover', position: 'centre' })
+          .jpeg({ quality: 95 })
+          .toBuffer()
+        doc.save()
         doc.rect(pX + 1, pY + 1, pW - 2, pH - 2).clip()
-        doc.image(photoPath, pX + 1, pY + 1, {
+        doc.image(correctedBuffer, pX + 1, pY + 1, {
           width: pW - 2,
           height: pH - 2,
-          cover: [pW - 2, pH - 2],
-          align: 'center',
-          valign: 'center',
         })
       } catch (e) {
         doc
@@ -477,76 +469,85 @@ exports.generateCertificate = async (req, res) => {
     }
     doc.restore()
 
-    // AICE circular stamp (overlaps bottom of photo)
-    const sX = pX + pW / 2,
-      sY = pY + pH - 20,
-      sR = 36
-    doc.save()
-    doc.circle(sX, sY, sR).fillOpacity(0.22).fillColor('#ffffff').fill()
-    doc.fillOpacity(1)
-    doc.circle(sX, sY, sR).lineWidth(1.8).strokeColor(NAVY).stroke()
-    doc
-      .circle(sX, sY, sR - 5)
-      .lineWidth(0.7)
-      .strokeColor(NAVY)
-      .stroke()
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY)
-    doc.text('AICES', sX - 16, sY - 16, {
-      width: 32,
-      align: 'center',
-      lineBreak: false,
-    })
-    doc.font('Helvetica-Bold').fontSize(6.5).fillColor(NAVY)
-    doc.text('Vijayapur', sX - 16, sY - 4, {
-      width: 32,
-      align: 'center',
-      lineBreak: false,
-    })
-    doc.text('Ph: 41225', sX - 16, sY + 4, {
-      width: 32,
-      align: 'center',
-      lineBreak: false,
-    })
-    // Arc text around stamp — smaller arcR = smaller circumference = tighter character spacing
-    const arcTxt = 'Academic Institute of Computer Education Society '
-    const arcR = sR - 12 // radius 24 — tight enough for chars to touch
-    const arcSpan = Math.PI * 1.82
-    const arcStart = -Math.PI / 2 - arcSpan / 2
-    doc.font('Helvetica').fontSize(5).fillColor(NAVY)
-    for (let i = 0; i < arcTxt.length; i++) {
-      const angle = arcStart + (i / arcTxt.length) * arcSpan
-      doc.save()
-      doc.translate(sX + arcR * Math.cos(angle), sY + arcR * Math.sin(angle))
-      doc.rotate((angle + Math.PI / 2) * (180 / Math.PI))
-      doc.text(arcTxt[i], -2, -3, { lineBreak: false })
-      doc.restore()
-    }
-    doc.restore()
-
-    // Subjects — aligned to match the Director signature zone exactly (18 to 190)
-    const subjects =
-      student.course.subjects && student.course.subjects.length > 0
-        ? student.course.subjects
-        : []
-    const subjX = 18, // same left edge as dirLineX1
-      subjMaxW = 190 - 18 // same width as Director zone
-    let subjY = BOT + 4
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(DARK)
-    doc.text(student.course.name, subjX, subjY, {
-      width: subjMaxW,
-      align: 'center',
-      lineBreak: false,
-    })
-    subjY += 15
-    doc.font('Helvetica-Bold').fontSize(8.8).fillColor(DARK)
-    subjects.forEach((s) => {
-      doc.text(s, subjX, subjY, {
-        width: subjMaxW,
-        align: 'center',
-        lineBreak: false,
+    // AICE circular stamp — resized to perfect square via sharp to avoid oval distortion
+    const sealSize = 140
+    const sealPath = ip('seal-removebg-preview.png')
+    const sealBuffer = fs.existsSync(sealPath)
+      ? await sharp(sealPath)
+          .resize(sealSize * 3, sealSize * 3, {
+            // 3x for high DPI quality
+            fit: 'contain', // preserves aspect, no stretch
+            background: { r: 0, g: 0, b: 0, alpha: 0 }, // transparent bg
+          })
+          .png()
+          .toBuffer()
+      : null
+    const sealX = pX + pW - sealSize / 1.7 // overlaps right edge of photo
+    const sealY = pY + pH - sealSize / 2 - 30 // overlaps bottom, shifted up
+    if (sealBuffer) {
+      safeImage(doc, sealBuffer, sealX, sealY, {
+        width: sealSize,
+        height: sealSize,
       })
-      subjY += 13
-    })
+    }
+
+    // Course description lines — 2-column layout when > 8 lines
+    // Split description by newline; fall back to subjects array, then course name
+    const descLines =
+      student.course.description && student.course.description.trim().length > 0
+        ? student.course.description
+            .split('\n')
+            .map((l) => l.trim())
+            .filter(Boolean)
+        : student.course.subjects && student.course.subjects.length > 0
+          ? student.course.subjects
+          : [student.course.name]
+
+    const descLineH = 13 // vertical gap per line
+    const descStartY = legendY + 30
+
+    // Shared column positions (hoisted so abbreviation can use them for centering)
+    const col1X = 80
+    const col2X = col1X + (pX - col1X) / 2 + 45
+    const descZoneW = pX - col1X - 10 // total width of description area
+
+    // Course abbreviation (e.g. "Diploma in Advance Accounting" → "D.A.A")
+    const courseAbbr = ((student.course && student.course.name) || '')
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+      .map((w) => w[0].toUpperCase())
+      .join('.')
+    if (courseAbbr) {
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(DARK)
+      // Draw twice with tiny offset to simulate extra-bold weight
+      // Centered over the full description zone (col1 → photo edge)
+      doc.text(courseAbbr, col1X, descStartY - 18, { width: descZoneW, align: 'center', lineBreak: false })
+      doc.text(courseAbbr, col1X + 0.3, descStartY - 18, { width: descZoneW, align: 'center', lineBreak: false })
+      const abbrW = doc.widthOfString(courseAbbr)
+      const abbrCenterX = col1X + descZoneW / 2
+      hRule(doc, abbrCenterX - abbrW / 2, descStartY - 6.5, abbrCenterX + abbrW / 2, 0.8, DARK)
+    }
+
+    if (descLines.length <= 8) {
+      // Single column
+      doc.font('Helvetica-Bold').fontSize(11.5).fillColor(DARK)
+      descLines.forEach((line, i) => {
+        doc.text(line, col1X, descStartY + i * descLineH, { lineBreak: false })
+      })
+    } else {
+      // Two columns
+
+      const col1Lines = descLines.slice(0, 8)
+      const col2Lines = descLines.slice(8, 16) // max 8 in col 2
+
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(DARK)
+      col1Lines.forEach((line, i) => {
+        doc.text(line, col1X, descStartY + i * descLineH, { lineBreak: false })
+      })
+      col2Lines.forEach((line, i) => {
+        doc.text(line, col2X, descStartY + i * descLineH, { lineBreak: false })
+      })
+    }
 
     // Date of issue — aligned to match the President signature zone exactly
     const dateLX = W - 190, // same left edge as presLineX1
@@ -556,10 +557,10 @@ exports.generateCertificate = async (req, res) => {
     doc.text(
       fmtDMY(student.certificateIssuedDate || new Date()),
       dateLX,
-      BOT + 10,
+      BOT + 13,
       { width: dateZoneW, align: 'center', lineBreak: false },
     )
-    doc.font('Helvetica-Bold').fontSize(14).fillColor(DARK)
+    doc.font('Helvetica-Bold').fontSize(13).fillColor(DARK)
     doc.text('Date of issue', dateLX, BOT + 28, {
       width: dateZoneW,
       align: 'center',
@@ -583,20 +584,19 @@ exports.generateCertificate = async (req, res) => {
     safeImage(
       doc,
       ip('director_sign_removebg.png'),
-      dirCenterX - dirSigW / 2,
-      sigLineY - dirSigH - 2,
+      dirCenterX - dirSigW / 2.5,
+      sigLineY - dirSigH - 0.5,
       { width: dirSigW, height: dirSigH },
     )
-    hRule(doc, dirLineX1, sigLineY, dirLineX2, 1.2, DARK)
     doc.font('Helvetica-Bold').fontSize(13).fillColor(DARK)
-    doc.text('Director', dirLineX1, sigLineY + 4, {
+    doc.text('Director', dirLineX1, sigLineY, {
       width: dirLineX2 - dirLineX1,
       align: 'center',
       lineBreak: false,
     })
 
     // ── President (right) ──
-    const presSigW = 130,
+    const presSigW = 110,
       presSigH = presSigW * (134 / 401)
     const presLineX1 = W - 190,
       presLineX2 = W - 18
@@ -604,13 +604,12 @@ exports.generateCertificate = async (req, res) => {
     safeImage(
       doc,
       ip('president_sign_removebg.png'),
-      presCenterX - presSigW / 2,
+      presCenterX - presSigW / 1.5,
       sigLineY - presSigH - 2,
       { width: presSigW, height: presSigH },
     )
-    hRule(doc, presLineX1, sigLineY, presLineX2, 1.2, DARK)
     doc.font('Helvetica-Bold').fontSize(13).fillColor(DARK)
-    doc.text('President', presLineX1, sigLineY + 4, {
+    doc.text('President', presLineX1, sigLineY, {
       width: presLineX2 - presLineX1,
       align: 'center',
       lineBreak: false,
@@ -618,8 +617,6 @@ exports.generateCertificate = async (req, res) => {
 
     // ── 11. FOOTER ────────────────────────────────────────────────────────────
     // FY is already defined above in the signatures section
-    // hRule(doc, 16, FY - 6, W - 16, 0.9, GOLD)
-
     // Line 1: HO label (bold) + address (bold-italic)
     const hoLabel = 'HO : '
     doc.font('Helvetica-Bold').fontSize(11).fillColor(DARK)

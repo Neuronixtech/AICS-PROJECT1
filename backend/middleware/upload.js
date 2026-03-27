@@ -29,7 +29,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter });
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter });
 
 // Named fields for student document uploads (3 specific sections)
 const uploadStudentDocs = upload.fields([

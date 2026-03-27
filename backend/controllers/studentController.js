@@ -1,3 +1,4 @@
+const fs = require('fs');
 const Student = require('../models/Student');
 const Counter = require('../models/Counter');
 const { generateInvoice } = require('../utils/invoiceGenerator');
@@ -9,6 +10,14 @@ const buildDocObj = (file) => file ? {
   uploadedAt: new Date()
 } : undefined;
 
+// Helper: delete any files Multer already wrote to disk when the request fails
+const cleanupUploadedFiles = (req) => {
+  if (!req.files) return;
+  Object.values(req.files).forEach(fileArr =>
+    fileArr.forEach(f => fs.unlink(f.path, () => {}))
+  );
+};
+
 exports.addStudent = async (req, res) => {
   try {
     const {
@@ -18,7 +27,10 @@ exports.addStudent = async (req, res) => {
     } = req.body;
 
     const existing = await Student.findOne({ phoneNumber });
-    if (existing) return res.status(400).json({ message: 'A student with this phone number already exists' });
+    if (existing) {
+      cleanupUploadedFiles(req);
+      return res.status(400).json({ message: 'A student with this phone number already exists' });
+    }
 
     let discountData = null;
     let finalFees = Number(totalFees);
@@ -26,7 +38,10 @@ exports.addStudent = async (req, res) => {
     if (couponCode) {
       const Discount = require('../models/Discount');
       const coupon = await Discount.findOne({ couponCode: couponCode.toUpperCase() });
-      if (!coupon || !coupon.isValid()) return res.status(400).json({ message: 'Invalid or expired coupon code' });
+      if (!coupon || !coupon.isValid()) {
+        cleanupUploadedFiles(req);
+        return res.status(400).json({ message: 'Invalid or expired coupon code' });
+      }
       const applied = coupon.applyDiscount(Number(totalFees));
       finalFees = applied.finalFees;
       discountData = { couponCode: coupon.couponCode, percentage: coupon.percentage, appliedAmount: applied.discountAmount };
@@ -118,6 +133,7 @@ exports.addStudent = async (req, res) => {
       ...(invoiceResult && { invoice: invoiceResult })
     });
   } catch (error) {
+    cleanupUploadedFiles(req);
     res.status(500).json({ message: error.message });
   }
 };

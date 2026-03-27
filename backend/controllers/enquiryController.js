@@ -3,7 +3,8 @@ const Student = require('../models/Student');
 
 exports.addEnquiry = async (req, res) => {
   try {
-    const enquiry = await Enquiry.create({ ...req.body, createdBy: req.user._id });
+    const { firstName, fatherName, lastName, phoneNumber, email, address, qualification, interestedCourse, expectedAdmissionDate, followUpDate, notes } = req.body;
+    const enquiry = await Enquiry.create({ firstName, fatherName, lastName, phoneNumber, email, address, qualification, interestedCourse, expectedAdmissionDate, followUpDate, notes, createdBy: req.user._id });
     const populated = await Enquiry.findById(enquiry._id).populate('interestedCourse', 'name');
     res.status(201).json(populated);
   } catch (error) {
