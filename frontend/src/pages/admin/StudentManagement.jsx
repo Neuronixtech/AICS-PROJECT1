@@ -685,15 +685,15 @@ export default function StudentManagement() {
                   ].map(({ field, label, hint, accept, cameraOk }) => (
                     <div className="form-group" key={field}>
                       <label className="form-label">{label}</label>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                        <label style={{ flex: 1, cursor: 'pointer', padding: '0.4rem 0.75rem', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-sm)', background: '#fff', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                        <label style={{ flex: '1 1 48%', cursor: 'pointer', padding: '0.6rem 1rem', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-sm)', background: '#fff', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', minHeight: '44px' }}>
                           📁 Choose File
                           <input type="file" style={{ display: 'none' }} accept={accept} onChange={e => handleDocChange(field, e.target.files[0])} />
                         </label>
                         {cameraOk && (
                           <button type="button"
                             onClick={() => setCameraField({ field, label, handler: handleDocChange })}
-                            style={{ cursor: 'pointer', padding: '0.4rem 0.75rem', border: '1px solid var(--primary)', borderRadius: 'var(--radius-sm)', background: 'var(--primary-light,#eff6ff)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: 600 }}>
+                            style={{ flex: '1 1 48%', cursor: 'pointer', padding: '0.6rem 1rem', border: '1px solid var(--primary)', borderRadius: 'var(--radius-sm)', background: 'var(--primary-light,#eff6ff)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 600, minHeight: '44px' }}>
                             📷 Camera
                           </button>
                         )}
@@ -896,15 +896,15 @@ export default function StudentManagement() {
                         <span style={{ fontSize: '0.75rem', color: 'var(--success)', marginLeft: '0.5rem' }}>✅ Already uploaded</span>
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                      <label style={{ flex: 1, cursor: 'pointer', padding: '0.4rem 0.75rem', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-sm)', background: '#fff', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                      <label style={{ flex: '1 1 48%', cursor: 'pointer', padding: '0.6rem 1rem', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius-sm)', background: '#fff', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', minHeight: '44px' }}>
                         📁 Choose File
                         <input type="file" style={{ display: 'none' }} accept={accept} onChange={e => handleUploadDocChange(field, e.target.files[0])} />
                       </label>
                       {cameraOk && (
                         <button type="button"
                           onClick={() => setCameraField({ field, label, handler: handleUploadDocChange })}
-                          style={{ cursor: 'pointer', padding: '0.4rem 0.75rem', border: '1px solid var(--primary)', borderRadius: 'var(--radius-sm)', background: 'var(--primary-light,#eff6ff)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: 600 }}>
+                          style={{ flex: '1 1 48%', cursor: 'pointer', padding: '0.6rem 1rem', border: '1px solid var(--primary)', borderRadius: 'var(--radius-sm)', background: 'var(--primary-light,#eff6ff)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 600, minHeight: '44px' }}>
                           📷 Camera
                         </button>
                       )}
