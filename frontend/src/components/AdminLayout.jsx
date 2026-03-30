@@ -15,7 +15,7 @@ const navItems = [
   { path: '/admin/courses', label: 'Courses', icon: '📚' },
   { path: '/admin/certificates', label: 'Certificates', icon: '🏆' },
   { section: 'Settings' },
-  { path: '/admin/staff', label: 'Staff', icon: '👥' },
+  { path: '/admin/staff', label: 'Centres', icon: '👥' },
 ];
 
 const pageTitles = {

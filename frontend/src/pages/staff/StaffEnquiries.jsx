@@ -235,7 +235,7 @@ export default function StaffEnquiries() {
 
       {/* ── ADD / EDIT MODAL ──────────────────────────────────────────────── */}
       {showModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+        <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
               <h3 className="modal-title">{editing ? '✏️ Edit Enquiry' : '➕ Add Enquiry'}</h3>
