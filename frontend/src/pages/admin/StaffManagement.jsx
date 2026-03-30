@@ -65,7 +65,7 @@ export default function StaffManagement() {
           <h1 className="page-title">👥 Staff Management</h1>
           <p className="page-subtitle">{staff.length} staff members</p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setForm(emptyForm); setErrors({}); setShowModal(true); }}>+ Add Staff</button>
+        <button className="btn btn-primary" onClick={() => { setForm(emptyForm); setErrors({}); setShowModal(true); }}>+ Add Centre</button>
       </div>
 
       <div className="card">
@@ -73,9 +73,9 @@ export default function StaffManagement() {
           : staff.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">👥</div>
-              <div className="empty-title">No staff members</div>
-              <div className="empty-text">Add your first staff member</div>
-              <button className="btn btn-primary" onClick={() => setShowModal(true)}>Add Staff</button>
+              <div className="empty-title">No Centre Added</div>
+              <div className="empty-text">Add your first Centre</div>
+              <button className="btn btn-primary" onClick={() => setShowModal(true)}>Add Centre</button>
             </div>
           ) : (
             <div className="table-responsive">
@@ -111,7 +111,7 @@ export default function StaffManagement() {
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal modal-sm">
             <div className="modal-header">
-              <h3 className="modal-title">👤 Add Staff Member</h3>
+              <h3 className="modal-title">👤 Add Centre</h3>
               <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
             </div>
             <form onSubmit={handleSubmit}>
@@ -136,7 +136,7 @@ export default function StaffManagement() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? '...' : '✅ Add Staff'}</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? '...' : '✅ Add Centre'}</button>
               </div>
             </form>
           </div>
