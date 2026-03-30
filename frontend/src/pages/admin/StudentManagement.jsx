@@ -510,7 +510,7 @@ export default function StudentManagement() {
 
       {/* ADD STUDENT MODAL */}
       {showModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+        <div className="modal-overlay">
           <div className="modal modal-lg">
             <div className="modal-header">
               <h3 className="modal-title">➕ Add New Student</h3>

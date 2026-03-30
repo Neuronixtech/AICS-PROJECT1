@@ -129,7 +129,7 @@ export default function CourseManagement() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+        <div className="modal-overlay">
           <div className="modal modal-sm">
             <div className="modal-header">
               <h3 className="modal-title">{editing ? '✏️ Edit Course' : '📚 Add Course'}</h3>
