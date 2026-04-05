@@ -444,7 +444,7 @@ exports.generateCertificate = async (req, res) => {
       try {
         const correctedBuffer = await sharp(photoPath)
           .rotate()
-          .resize(300, 375, { fit: 'cover', position: 'centre', withoutEnlargement: true })
+          .resize(300, 375, { fit: 'cover', position: 'centre' })
           .jpeg({ quality: 98 })
           .toBuffer()
         doc.save()
