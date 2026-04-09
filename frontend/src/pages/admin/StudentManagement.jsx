@@ -56,12 +56,8 @@ function ImageCropModal({ imageSrc, fieldName, onCrop, onClose }) {
   }
 
   return (
-    <div
-      className="modal-overlay"
-      style={{ zIndex: 10001 }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="modal" style={{ maxWidth: 560, width: '95%' }}>
+    <div className="modal-overlay" style={{ zIndex: 10001 }}>
+      <div className="modal" style={{ maxWidth: 500, width: '95%' }}>
         <div className="modal-header">
           <h3 className="modal-title">✂️ Crop Image</h3>
           <button className="modal-close" onClick={onClose}>

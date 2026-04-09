@@ -285,8 +285,11 @@ exports.generateCertificate = async (req, res) => {
     doc.text(shriTxt, IL, R1Y, { lineBreak: false })
     const shriW = doc.widthOfString(shriTxt)
     const nameX = IL + shriW + 14
+    // Center student name on its underline
     doc.font('Helvetica-Bold').fontSize(13.5).fillColor(DARK)
-    doc.text(fullName, nameX, R1Y - 1, { width: IR - nameX, lineBreak: false })
+    const nameW = doc.widthOfString(fullName)
+    const nameCenterX = nameX + (IR - nameX - nameW) / 2
+    doc.text(fullName, nameCenterX, R1Y - 1, { lineBreak: false })
     hRule(doc, nameX, R1Y + 17, IR, 0.8, GREY)
 
     // Row 2: S/D/W + FATHER NAME
@@ -296,13 +299,12 @@ exports.generateCertificate = async (req, res) => {
     doc.text(sdTxt, IL, R2Y, { lineBreak: false })
     const sdW = doc.widthOfString(sdTxt)
     const sdUnderlineX = IL + sdW + 4 // underline starts just after the label
-    // fatherX aligned to nameX so father name starts at same column as student name
-    const fatherX = nameX
+    // Center father name on its underline
+    const fatherName = (student.fatherName || '').toUpperCase()
     doc.font('Helvetica-Bold').fontSize(13.5).fillColor(DARK)
-    doc.text((student.fatherName || '').toUpperCase(), fatherX, R2Y - 1, {
-      width: IR - fatherX,
-      lineBreak: false,
-    })
+    const fatherW = doc.widthOfString(fatherName)
+    const fatherCenterX = nameX + (IR - nameX - fatherW) / 2
+    doc.text(fatherName, fatherCenterX, R2Y - 1, { lineBreak: false })
     hRule(doc, sdUnderlineX, R2Y + 17, IR, 0.8, GREY)
 
     // Row 3: "Has successfully Completed / ~~Undergone~~ the course"
