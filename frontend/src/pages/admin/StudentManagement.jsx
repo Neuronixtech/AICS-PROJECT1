@@ -1363,17 +1363,7 @@ export default function StudentManagement() {
                       <span className="form-error">{errors.totalFees}</span>
                     )}
                   </div>
-                  {/*
-                  a
-                  a
-                  a
-                  a
-                  a
-                  a
-                  a
-                  a
-                  a
-                  */}
+                  
                   <div className="form-group">
                     {/* Issue #4: Discount dropdown */}
                     <label className="form-label">Discount Coupon</label>
