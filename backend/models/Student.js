@@ -67,6 +67,9 @@ const studentSchema = new mongoose.Schema({
 
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 
+  // Track if student was edited after initial creation
+  edited: { type: Boolean, default: false },
+
   // Invoice
   invoiceGenerated: { type: Boolean, default: false },
   invoiceNumber:    String,

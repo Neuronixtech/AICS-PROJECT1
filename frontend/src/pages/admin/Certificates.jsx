@@ -173,6 +173,20 @@ export default function Certificates() {
                             {status === 'issued' && <span className="badge badge-success">🏆 Issued</span>}
                             {status === 'eligible' && <span className="badge badge-warning">🎯 Eligible</span>}
                             {status === 'not_eligible' && <span className="badge badge-gray">⏳ Not Ready</span>}
+                            {s.edited && (
+                              <span style={{ 
+                                display: 'inline-block', 
+                                marginLeft: '4px', 
+                                padding: '2px 6px', 
+                                background: '#ffedd5', 
+                                color: '#c2410c', 
+                                borderRadius: '4px', 
+                                fontSize: '0.7rem', 
+                                fontWeight: 600 
+                              }}>
+                                ✏️ Edited
+                              </span>
+                            )}
                           </td>
                           <td data-label="Action">
                             {(status === 'eligible' || status === 'issued') && (

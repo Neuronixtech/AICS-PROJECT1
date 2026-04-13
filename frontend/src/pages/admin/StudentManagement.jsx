@@ -271,6 +271,9 @@ export default function StudentManagement() {
   const [editErrors, setEditErrors] = useState({})
   const [editCouponInfo, setEditCouponInfo] = useState(null)
   const [editCouponLoading, setEditCouponLoading] = useState(false)
+  const [editInitialPayment, setEditInitialPayment] = useState('')
+  const [editInitialPaymentMethod, setEditInitialPaymentMethod] = useState('cash')
+  const [editNumInstallments, setEditNumInstallments] = useState('none')
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [docs, setDocs] = useState(emptyDocs)
@@ -697,6 +700,26 @@ export default function StudentManagement() {
     setEditCouponInfo(null)
   }
 
+  const buildEditInstallments = () => {
+    const total = editCouponInfo ? editCouponInfo.finalFees : Number(editForm.totalFees || 0)
+    if (editNumInstallments === 'none') {
+      return [{ installmentNumber: 1, amount: total, dueDate: new Date().toISOString().split('T')[0], status: 'pending' }]
+    }
+    const n = parseInt(editNumInstallments) || 1
+    const each = Math.floor(total / n)
+    const remainder = total - each * n
+    return Array.from({ length: n }, (_, i) => {
+      const dueDate = new Date()
+      dueDate.setMonth(dueDate.getMonth() + i + 1)
+      return {
+        installmentNumber: i + 1,
+        amount: i === n - 1 ? each + remainder : each,
+        dueDate: dueDate.toISOString().split('T')[0],
+        status: 'pending'
+      }
+    })
+  }
+
   const handleEditDiscountSelect = (e) => {
     const selected = activeDiscounts.find(
       (d) => d.couponCode === e.target.value,
@@ -773,6 +796,17 @@ export default function StudentManagement() {
       formData.append('status', editForm.status)
       if (editForm.couponCode.trim())
         formData.append('couponCode', editForm.couponCode.trim())
+
+      // Only send payment fields if user explicitly changed them
+      const originalPaidFees = selectedStudent.paidFees || 0
+      const originalInstallmentsLength = selectedStudent.installments?.length || 0
+      
+      if (Number(editInitialPayment) !== originalPaidFees || parseInt(editNumInstallments) !== originalInstallmentsLength) {
+        formData.append('initialPayment', Number(editInitialPayment) || 0)
+        formData.append('initialPaymentMethod', editInitialPaymentMethod)
+        formData.append('installments', JSON.stringify(buildEditInstallments()))
+      }
+
       if (editDocs.studentPhoto)
         formData.append('studentPhoto', editDocs.studentPhoto)
       if (editDocs.qualificationDoc)
@@ -791,6 +825,9 @@ export default function StudentManagement() {
       setEditDocs(emptyDocs)
       setEditPreviews(emptyPreviews)
       setEditCouponInfo(null)
+      setEditInitialPayment('')
+      setEditInitialPaymentMethod('cash')
+      setEditNumInstallments('none')
       fetchStudents()
     } catch (err) {
       showAlert(
@@ -910,6 +947,16 @@ export default function StudentManagement() {
       finalFees: student.finalFees || student.totalFees,
       discountAmount: (student.totalFees - (student.finalFees || student.totalFees)),
     } : null)
+    
+    // Set payment fields from existing student data
+    const numInstallments = student.installments?.length > 0 ? String(student.installments.length) : 'none'
+    setEditNumInstallments(numInstallments)
+    setEditInitialPayment(String(student.paidFees || 0))
+    
+    // Get payment method from most recent payment or default to cash
+    const lastPayment = student.payments?.[student.payments.length - 1]
+    setEditInitialPaymentMethod(lastPayment?.paymentMethod || 'cash')
+    
     setShowEditModal(true)
   }
 
@@ -1143,12 +1190,20 @@ export default function StudentManagement() {
                         >
                           Pay
                         </button>
+                        {!s.certificateIssued && (
+                          <button
+                            className="btn btn-sm btn-primary"
+                            onClick={() => openEdit(s)}
+                          >
+                            ✏️ Edit
+                          </button>
+                        )}
                          {/*<button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleDelete(s._id)}
-                        >
-                          Remove
-                        </button> */}
+                           className="btn btn-sm btn-danger"
+                           onClick={() => handleDelete(s._id)}
+                         >
+                           Remove
+                         </button> */}
                       </td>
                     </tr>
                   ))}
@@ -1982,19 +2037,21 @@ export default function StudentManagement() {
                   alignItems: 'center',
                   gap: '0.75rem',
                 }}
-              >
-                <h3 className="modal-title">👤 Student Details</h3>
-                <button
-                  className="btn btn-sm btn-warning"
-                  onClick={() => {
-                    setShowDetailModal(false)
-                    openEdit(selectedStudent)
-                  }}
-                  style={{ marginLeft: 'auto' }}
                 >
-                  ✏️ Edit
-                </button>
-              </div>
+                  <h3 className="modal-title">👤 Student Details</h3>
+                  {!selectedStudent.certificateIssued && (
+                    <button
+                      className="btn btn-sm btn-warning"
+                      onClick={() => {
+                        setShowDetailModal(false)
+                        openEdit(selectedStudent)
+                      }}
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      ✏️ Edit
+                    </button>
+                  )}
+                </div>
               <button
                 className="modal-close"
                 onClick={() => setShowDetailModal(false)}
@@ -2896,6 +2953,103 @@ export default function StudentManagement() {
                         {editCouponInfo.finalFees.toLocaleString('en-IN')}
                       </div>
                     )}
+                  </div>
+
+                  {/* Payment Section in Edit Modal */}
+                  <div
+                    style={{ gridColumn: '1 / -1' }}
+                    className="form-section-title"
+                  >
+                    Initial Payment & Installments
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Initial Payment (₹)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      placeholder="Amount paid now"
+                      min="0"
+                      max={editCouponInfo ? editCouponInfo.finalFees : editForm.totalFees}
+                      step="1"
+                      value={editInitialPayment}
+                      onChange={(e) => {
+                        const val = Number(e.target.value)
+                        const maxFees = editCouponInfo ? editCouponInfo.finalFees : Number(editForm.totalFees || 0)
+                        if (val <= maxFees)
+                          setEditInitialPayment(e.target.value)
+                        else
+                          showAlert('error', `Initial payment cannot exceed total fees (₹${maxFees.toLocaleString('en-IN')})`)
+                      }}
+                    />
+                    <span className="form-hint">
+                      {editCouponInfo ? (
+                        <span style={{ color: '#b45309', fontWeight: 600 }}>
+                          🔒 Full payment locked — discount applied
+                        </span>
+                      ) : (
+                        `Maximum: ₹${(Number(editForm.totalFees) || 0).toLocaleString('en-IN')}`
+                      )}
+                    </span>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Payment Method</label>
+                    <select
+                      className="form-select"
+                      value={editInitialPaymentMethod}
+                      onChange={(e) => setEditInitialPaymentMethod(e.target.value)}
+                    >
+                      {PAYMENT_METHODS.map((m) => (
+                        <option key={m} value={m}>
+                          {m.toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Number of Installments</label>
+                    {editCouponInfo ? (
+                      <div
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          background: '#fef3c7',
+                          border: '1px solid #f59e0b',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.85rem',
+                          color: '#92400e',
+                          fontWeight: 600,
+                        }}
+                      >
+                        🔒 Installments not available with discount — Full payment required
+                      </div>
+                    ) : (
+                      <select
+                        className="form-select"
+                        value={editNumInstallments}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          const total = Number(editForm.totalFees || 0)
+                          const auto = val === 'none' ? String(total) : String(Math.floor(total / (parseInt(val) || 1)))
+                          setEditNumInstallments(val)
+                          setEditInitialPayment(auto)
+                        }}
+                      >
+                        <option value="none">None (Full payment now)</option>
+                        <option value="1">1 Installment</option>
+                        {[1, 2, 3, 4, 6, 12].filter(n => n > 1).map(n => (
+                          <option key={n} value={n}>{n} installments</option>
+                        ))}
+                      </select>
+                    )}
+                    <span className="form-hint">
+                      {editCouponInfo ? (
+                        <span style={{ color: '#b45309', fontWeight: 600 }}>✓ Full discounted amount auto-filled above</span>
+                      ) : editNumInstallments === 'none' ? (
+                          <span style={{ color: 'var(--primary)', fontWeight: 600 }}>✓ Full fees collected upfront</span>
+                        ) : (
+                          `≈ ₹${Math.floor(Number(editForm.totalFees || 0) / Number(editNumInstallments)).toLocaleString('en-IN')} per installment`
+                        )
+                      }
+                    </span>
                   </div>
 
                  <div

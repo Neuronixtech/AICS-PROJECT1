@@ -178,6 +178,67 @@ exports.updateStudent = async (req, res) => {
       student.enrollmentDate = new Date(req.body.admissionDate);
     }
 
+    // Handle coupon code / discount
+    if (req.body.couponCode) {
+      const Coupon = require('../models/Discount');
+      const coupon = await Coupon.findOne({ couponCode: req.body.couponCode, isActive: true });
+      if (coupon) {
+        const totalFees = Number(req.body.totalFees) || student.totalFees;
+        const discountAmount = totalFees * (coupon.percentage / 100);
+        student.discount = {
+          couponCode: coupon.couponCode,
+          percentage: coupon.percentage,
+          appliedAmount: discountAmount
+        };
+        student.finalFees = totalFees - discountAmount;
+      } else {
+        student.discount = null;
+        student.finalFees = Number(req.body.totalFees) || student.totalFees;
+      }
+    } else if (req.body.totalFees && !req.body.couponCode) {
+      // If no coupon code but totalFees changed, recalculate finalFees
+      student.finalFees = Number(req.body.totalFees);
+      student.discount = null;
+    }
+
+    // Handle payment fields (initialPayment, initialPaymentMethod, installments)
+    // Note: We ADD to existing paidFees, not replace it (for backward compatibility)
+    if (req.body.initialPayment !== undefined) {
+      const newPayment = Number(req.body.initialPayment);
+      // Only add if the new payment is more than already paid (to handle additional payments)
+      if (newPayment > student.paidFees) {
+        student.paidFees = newPayment;
+      }
+    }
+    
+    if (req.body.initialPaymentMethod && req.body.initialPayment !== undefined) {
+      // Only add payment record if this is a new payment (not just editing existing)
+      const existingInitialPayment = student.payments.find(p => p.remarks === 'Initial payment on enrollment');
+      if (!existingInitialPayment && Number(req.body.initialPayment) > 0) {
+        student.payments.push({
+          amount: Number(req.body.initialPayment),
+          date: student.enrollmentDate || new Date(),
+          paymentMethod: req.body.initialPaymentMethod,
+          remarks: 'Initial payment on enrollment'
+        });
+      }
+    }
+
+    if (req.body.installments) {
+      try {
+        const newInstallments = JSON.parse(req.body.installments);
+        // Only update installments if they're different
+        if (JSON.stringify(student.installments) !== JSON.stringify(newInstallments)) {
+          student.installments = newInstallments;
+        }
+      } catch (e) {
+        // Invalid JSON, ignore
+      }
+    }
+
+    // Mark as edited
+    student.edited = true;
+
     if (req.files) {
       const files = req.files;
       if (files.studentPhoto && files.studentPhoto[0]) {

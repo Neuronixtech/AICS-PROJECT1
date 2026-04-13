@@ -679,8 +679,7 @@ exports.generateCertificate = async (req, res) => {
     ws.on('finish', async () => {
       try {
         student.certificateIssued = true
-        student.certificateIssuedDate =
-          student.certificateIssuedDate || new Date()
+        student.certificateIssuedDate = new Date()
         student.certificateNumber = certNum
         await student.save()
       } catch (e) {
