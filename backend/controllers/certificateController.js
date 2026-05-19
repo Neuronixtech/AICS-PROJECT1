@@ -94,7 +94,7 @@ exports.generateCertificate = async (req, res) => {
         (s) => s._id.toString() === student._id.toString(),
       )
       const studentNumber = studentIndex + 1
-      certNum = `${yy}AICES${String(studentNumber).padStart(3, '0')}`
+      certNum = `${yy}AICES${String(studentNumber).padStart(4, '0')}`
     }
 
     // const fullName = student.certificateName ? student.certificateName : [student.firstName, student.lastName].filter(Boolean).join(' ').toUpperCase();
@@ -691,7 +691,7 @@ exports.generateCertificate = async (req, res) => {
     ws.on('finish', async () => {
       try {
         student.certificateIssued = true
-        student.certificateIssuedDate = new Date()
+        if (!student.certificateIssuedDate) student.certificateIssuedDate = new Date()
         student.certificateNumber = certNum
         await student.save()
       } catch (e) {
