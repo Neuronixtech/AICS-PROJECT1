@@ -18,7 +18,7 @@ counterSchema.statics.getNextInvoiceNumber = async function () {
   return `${y}AICES${String(counter.sequence).padStart(3, '0')}`
 }
 
-// Certificate: yyAICES001  e.g. 26AICES001
+// Certificate: yyAICES0001  e.g. 26AICES0001
 // Accepts optional yearFromDate to use admission date year instead of current year
 counterSchema.statics.getNextCertificateNumber = async function (yearFromDate) {
   const now = new Date()
@@ -29,7 +29,7 @@ counterSchema.statics.getNextCertificateNumber = async function (yearFromDate) {
     { $inc: { sequence: 1 } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   )
-  return `${yy}AICES${String(counter.sequence).padStart(3, '0')}`
+  return `${yy}AICES${String(counter.sequence).padStart(4, '0')}`
 }
 
 module.exports = mongoose.model('Counter', counterSchema)

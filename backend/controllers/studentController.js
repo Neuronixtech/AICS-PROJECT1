@@ -1,4 +1,5 @@
-const fs = require('fs');
+const fs   = require('fs');
+const path = require('path');
 const Student = require('../models/Student');
 const Counter = require('../models/Counter');
 const { generateInvoice } = require('../utils/invoiceGenerator');
@@ -171,11 +172,17 @@ exports.updateStudent = async (req, res) => {
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    const fields = ['firstName','fatherName','lastName','certificateName','phoneNumber','email','address','qualification','course','totalFees','status','courseDuration','courseCompleted','grade'];
+    const fields = ['firstName','fatherName','lastName','certificateName','phoneNumber','email','address','qualification','course','totalFees','status','courseDuration','courseCompleted','grade','certificateNumber'];
     fields.forEach(f => { if (req.body[f] !== undefined) student[f] = req.body[f]; });
 
     if (req.body.admissionDate) {
       student.enrollmentDate = new Date(req.body.admissionDate);
+    }
+    if (req.body.courseEndDate) {
+      student.courseEndDate = new Date(req.body.courseEndDate);
+    }
+    if (req.body.certificateIssuedDate) {
+      student.certificateIssuedDate = new Date(req.body.certificateIssuedDate);
     }
 
     // Handle coupon code / discount
@@ -351,6 +358,47 @@ exports.uploadDocument = async (req, res) => {
     await student.save();
     const updated = await Student.findById(student._id).populate('course', 'name');
     res.json({ message: 'Document uploaded successfully', student: updated });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ── GET /students/:id/invoice ──────────────────────────────────────────────
+// Serves the stored invoice PDF for a student.
+// If the file no longer exists on disk (e.g. after a redeploy), it is
+// regenerated on the fly so the download never fails.
+exports.downloadInvoice = async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id)
+      .populate('course', 'name duration')
+      .populate('payments.receivedBy', 'name');
+
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    let absPath = null;
+
+    // 1. Try to use the already-generated invoice stored on disk
+    if (student.invoiceUrl) {
+      const candidate = path.join(__dirname, '../../', student.invoiceUrl.replace(/^\//, ''));
+      if (fs.existsSync(candidate)) absPath = candidate;
+    }
+
+    // 2. If the file is missing, regenerate it so the download always works
+    if (!absPath) {
+      const invoiceNumber = student.invoiceNumber || await Counter.getNextInvoiceNumber();
+      const invoice = await generateInvoice(student, invoiceNumber);
+      student.invoiceNumber    = invoiceNumber;
+      student.invoiceUrl       = invoice.filePath;
+      student.invoiceGenerated = true;
+      await student.save();
+      absPath = path.join(__dirname, '../../', invoice.filePath.replace(/^\//, ''));
+    }
+
+    const fileName = `Invoice_${student.firstName}_${student.lastName}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    fs.createReadStream(absPath).pipe(res);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

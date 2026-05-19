@@ -1122,6 +1122,7 @@ export default function StudentManagement() {
               <table>
                 <thead>
                   <tr>
+                    <th style={{ width: '42px', textAlign: 'center' }}>S.NO</th>
                     <th>Student</th>
                     <th>Course</th>
                     <th>Admission Date</th>
@@ -1134,8 +1135,10 @@ export default function StudentManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((s) => (
+                  {paginated.map((s, idx) => (
                     <tr key={s._id}>
+                      <td data-label="#" style={{ textAlign: 'center', color: 'var(--gray-500)', fontSize: '0.85rem', fontWeight: 600 }}>
+                      {filtered.length - ((page - 1) * PER_PAGE + idx)} </td>                                                                 
                       <td data-label="Student">
                         <div className="td-name">
                           {s.firstName} {s.fatherName} {s.lastName}
