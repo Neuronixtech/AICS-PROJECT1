@@ -462,6 +462,7 @@ export default function StaffStudents() {
   const [activeDiscounts, setActiveDiscounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const enquiryIdRef = useRef(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showDocModal, setShowDocModal] = useState(false)
@@ -554,14 +555,15 @@ export default function StaffStudents() {
         qualification: enq.qualification || '',
         course: courseId,
       }))
-      setCouponInfo(null)
-      setFinalFees(0)
-      setErrors({})
-      setDocs(emptyDocs)
-      setPreviews(emptyPreviews)
-      setShowModal(true)
-    } catch (e) {
-      console.error('Enquiry parse failed', e)
+      enquiryIdRef.current = enq._id || null
+        setCouponInfo(null)
+        setFinalFees(0)
+        setErrors({})
+        setDocs(emptyDocs)
+        setPreviews(emptyPreviews)
+        setShowModal(true)
+      } catch (e) {
+        console.error('Enquiry parse failed', e)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -769,6 +771,8 @@ export default function StaffStudents() {
       fd.append('initialPaymentMethod', form.initialPaymentMethod || 'cash')
       if (form.couponCode.trim())
         fd.append('couponCode', form.couponCode.trim())
+      if (enquiryIdRef.current)
+        fd.append('enquiryId', enquiryIdRef.current)
       fd.append('courseDuration', Number(form.courseDuration) || 3)
       fd.append('admissionDate', form.admissionDate || '')
       fd.append('installments', JSON.stringify(installments))
@@ -784,6 +788,7 @@ export default function StaffStudents() {
           data.student._id,
           `${data.student.firstName}_${data.student.lastName}`,
         )
+      enquiryIdRef.current = null
       showAlert('success', 'Student added successfully!')
       setShowModal(false)
       setForm(emptyForm)
@@ -1463,7 +1468,10 @@ export default function StaffStudents() {
               <h3 className="modal-title">➕ Add New Student</h3>
               <button
                 className="modal-close"
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  enquiryIdRef.current = null
+                  setShowModal(false)
+                }}
               >
                 ✕
               </button>
@@ -1692,8 +1700,7 @@ export default function StaffStudents() {
                         <option value="">-- Select Discount --</option>
                         {activeDiscounts.map((d) => (
                           <option key={d._id} value={d.couponCode}>
-                            {d.couponCode} — {d.percentage}% off (
-                            {d.description})
+                            {d.couponCode} — ₹{d.amount} off ({d.description})
                           </option>
                         ))}
                       </select>
@@ -1958,7 +1965,10 @@ export default function StaffStudents() {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    enquiryIdRef.current = null
+                    setShowModal(false)
+                  }}
                 >
                   Cancel
                 </button>
@@ -3015,8 +3025,7 @@ export default function StaffStudents() {
                         <option value="">-- Select Discount --</option>
                         {activeDiscounts.map((d) => (
                           <option key={d._id} value={d.couponCode}>
-                            {d.couponCode} — {d.percentage}% off (
-                            {d.description})
+                            {d.couponCode} — ₹{d.amount} off ({d.description})
                           </option>
                         ))}
                       </select>

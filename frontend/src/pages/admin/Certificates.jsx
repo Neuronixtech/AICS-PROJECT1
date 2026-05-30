@@ -746,12 +746,11 @@ export default function Certificates() {
                       <tr key={s._id}>
                         <td data-label="Student">
                           <div className="td-name">
-                            {s.certificateName ||
-                              `${s.firstName} ${s.fatherName} ${s.lastName}`}
+                            {s.firstName} {s.fatherName} {s.lastName}
                           </div>
                           {s.certificateName && (
                             <div className="td-sub">
-                              {s.firstName} {s.fatherName} {s.lastName}
+                              Cert. Name: {s.certificateName}
                             </div>
                           )}
                           <div className="td-sub">{s.phoneNumber}</div>

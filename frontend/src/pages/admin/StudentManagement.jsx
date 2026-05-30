@@ -314,6 +314,7 @@ export default function StudentManagement() {
   const [activeDiscounts, setActiveDiscounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const enquiryIdRef = useRef(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showDocumentModal, setShowDocumentModal] = useState(false)
@@ -414,6 +415,7 @@ export default function StudentManagement() {
           qualification: enq.qualification || '',
           course: courseId,
         }))
+        enquiryIdRef.current = enq._id || null
         setCouponInfo(null)
         setFinalFees(0)
         setErrors({})
@@ -645,6 +647,8 @@ export default function StudentManagement() {
       )
       if (form.couponCode.trim())
         formData.append('couponCode', form.couponCode.trim())
+      if (enquiryIdRef.current)
+        formData.append('enquiryId', enquiryIdRef.current)
       formData.append('courseDuration', Number(form.courseDuration) || 3)
       formData.append('admissionDate', form.admissionDate || '')
       formData.append('installments', JSON.stringify(installments))
@@ -662,6 +666,7 @@ export default function StudentManagement() {
         const name = `${data.student.firstName}_${data.student.lastName}`
         downloadInvoice(data.student._id, name)
       }
+      enquiryIdRef.current = null
       showAlert('success', 'Student added successfully!')
       setShowModal(false)
       setForm(emptyForm)
@@ -1383,7 +1388,10 @@ export default function StudentManagement() {
               <h3 className="modal-title">➕ Add New Student</h3>
               <button
                 className="modal-close"
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  enquiryIdRef.current = null
+                  setShowModal(false)
+                }}
               >
                 ✕
               </button>
@@ -2002,7 +2010,10 @@ export default function StudentManagement() {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    enquiryIdRef.current = null
+                    setShowModal(false)
+                  }}
                 >
                   Cancel
                 </button>

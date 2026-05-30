@@ -1,6 +1,7 @@
 const fs   = require('fs');
 const path = require('path');
 const Student = require('../models/Student');
+const Enquiry = require('../models/Enquiry');
 const Counter = require('../models/Counter');
 const { generateInvoice } = require('../utils/invoiceGenerator');
 
@@ -24,7 +25,8 @@ exports.addStudent = async (req, res) => {
     const {
       firstName, fatherName, lastName, certificateName, phoneNumber, email,
       address, qualification, course, totalFees, paidFees,
-      initialPaymentMethod, couponCode, courseDuration, admissionDate, installments
+      initialPaymentMethod, couponCode, courseDuration, admissionDate, installments,
+      enquiryId
     } = req.body;
 
     const existing = await Student.findOne({ phoneNumber });
@@ -126,6 +128,15 @@ exports.addStudent = async (req, res) => {
       populated.invoiceUrl = invoice.filePath;
       await populated.save();
       invoiceResult = { url: invoice.filePath, fileName: invoice.fileName };
+    }
+
+    // If created from an enquiry, mark it as converted
+    if (enquiryId) {
+      await Enquiry.findByIdAndUpdate(enquiryId, {
+        status: 'converted',
+        convertedToStudent: populated._id,
+        convertedAt: new Date()
+      });
     }
 
     res.status(201).json({
