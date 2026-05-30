@@ -4,6 +4,7 @@ const {
   addStaff,
   getAllStaff,
   removeStaff,
+  updateStaff,
   updateStaffPassword,
   getFeesOverview,
   getDashboardStats,
@@ -20,7 +21,9 @@ router.route('/staff')
   .post(addStaff)
   .get(getAllStaff);
 
-router.delete('/staff/:id', removeStaff);
+router.route('/staff/:id')
+  .put(updateStaff)
+  .delete(removeStaff);
 router.put('/staff/:id/password', updateStaffPassword);
 
 // Dashboard and overview

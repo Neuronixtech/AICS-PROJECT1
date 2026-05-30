@@ -728,6 +728,23 @@ exports.getEligibleStudents = async (req, res) => {
       .populate('course', 'name')
       .populate('addedBy', 'name')
       .sort('firstName')
+
+    // Pre-assign certificate numbers to eligible students who don't have one yet,
+    // so the CR. No column shows the number even before generation.
+    const allStudents = await Student.find({}).sort({ createdAt: 1 })
+    for (const student of students) {
+      if (!student.certificateNumber) {
+        const year = new Date(student.enrollmentDate).getFullYear()
+        const yy = String(year).slice(-2)
+        const studentIndex = allStudents.findIndex(
+          (s) => s._id.toString() === student._id.toString(),
+        )
+        const studentNumber = studentIndex + 1
+        student.certificateNumber = `${yy}AICES${String(studentNumber).padStart(4, '0')}`
+        await student.save()
+      }
+    }
+
     res.json(students)
   } catch (e) {
     res.status(500).json({ message: e.message })

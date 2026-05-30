@@ -102,6 +102,31 @@ exports.updateStaffPassword = async (req, res) => {
   }
 };
 
+// @desc    Update staff name / email
+// @route   PUT /api/admin/staff/:id
+// @access  Private/Admin
+exports.updateStaff = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const staff = await User.findById(req.params.id);
+    if (!staff) return res.status(404).json({ message: 'Staff member not found' });
+    if (staff.role !== 'staff') return res.status(400).json({ message: 'User is not a staff member' });
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (email !== undefined) {
+      const existing = await User.findOne({ email, _id: { $ne: req.params.id } });
+      if (existing) return res.status(400).json({ message: 'Email already in use' });
+      updateData.email = email;
+    }
+
+    const updated = await User.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true }).select('-password');
+    res.json({ _id: updated._id, name: updated.name, email: updated.email, role: updated.role });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Get fees overview
 // @route   GET /api/admin/fees-overview
 // @access  Private/Admin

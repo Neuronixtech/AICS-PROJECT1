@@ -8,7 +8,9 @@ const BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
 const downloadInvoice = async (studentId, studentName) => {
   try {
     // Call dedicated invoice endpoint — streams PDF with auth header via axios
-    const response = await api.get(`/students/${studentId}/invoice`, { responseType: 'blob' })
+    const response = await api.get(`/students/${studentId}/invoice`, {
+      responseType: 'blob',
+    })
     const blob = new Blob([response.data], { type: 'application/pdf' })
     const objectUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -42,14 +44,20 @@ function getCroppedImg(imgEl, pixelCrop) {
     pixelCrop.y * scaleY,
     pixelCrop.width * scaleX,
     pixelCrop.height * scaleY,
-    0, 0, canvas.width, canvas.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
   )
   return new Promise((resolve) =>
     canvas.toBlob(
-      (blob) => resolve(new File([blob], `cropped_${Date.now()}.jpg`, { type: 'image/jpeg' })),
+      (blob) =>
+        resolve(
+          new File([blob], `cropped_${Date.now()}.jpg`, { type: 'image/jpeg' }),
+        ),
       'image/jpeg',
       0.92,
-    )
+    ),
   )
 }
 
@@ -59,13 +67,20 @@ function ImageCropModal({ imageSrc, fieldName, onCrop, onClose }) {
   const [crop, setCrop] = useState()
   const [completedCrop, setCompletedCrop] = useState(null)
 
-  const onImageLoad = useCallback((e) => {
-    const { naturalWidth: w, naturalHeight: h } = e.currentTarget
-    const c = isPhoto
-      ? centerCrop(makeAspectCrop({ unit: '%', width: 80 }, 4 / 5, w, h), w, h)
-      : centerCrop({ unit: '%', width: 90, height: 90 }, w, h)
-    setCrop(c)
-  }, [isPhoto])
+  const onImageLoad = useCallback(
+    (e) => {
+      const { naturalWidth: w, naturalHeight: h } = e.currentTarget
+      const c = isPhoto
+        ? centerCrop(
+            makeAspectCrop({ unit: '%', width: 80 }, 4 / 5, w, h),
+            w,
+            h,
+          )
+        : centerCrop({ unit: '%', width: 90, height: 90 }, w, h)
+      setCrop(c)
+    },
+    [isPhoto],
+  )
 
   const handleApply = async () => {
     if (!completedCrop || !imgRef.current) return
@@ -116,7 +131,11 @@ function ImageCropModal({ imageSrc, fieldName, onCrop, onClose }) {
           <button className="btn btn-outline" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={handleApply} disabled={!completedCrop}>
+          <button
+            className="btn btn-primary"
+            onClick={handleApply}
+            disabled={!completedCrop}
+          >
             ✅ Apply Crop
           </button>
         </div>
@@ -182,7 +201,15 @@ function CameraModal({ label, onCapture, onClose }) {
       style={{ zIndex: 10000 }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal modal-sm" style={{ maxHeight: '100vh', display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div
+        className="modal modal-sm"
+        style={{
+          maxHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+        }}
+      >
         <div className="modal-header">
           <h3 className="modal-title">📷 Capture — {label}</h3>
           <button className="modal-close" onClick={onClose}>
@@ -191,7 +218,15 @@ function CameraModal({ label, onCapture, onClose }) {
         </div>
         <div
           className="modal-body"
-          style={{ textAlign: 'center', padding: '1rem', flex: '1', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{
+            textAlign: 'center',
+            padding: '1rem',
+            flex: '1',
+            overflow: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
           {camError ? (
             <div
@@ -279,6 +314,7 @@ export default function StudentManagement() {
   const [activeDiscounts, setActiveDiscounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const enquiryIdRef = useRef(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showDocumentModal, setShowDocumentModal] = useState(false)
@@ -290,7 +326,8 @@ export default function StudentManagement() {
   const [editCouponInfo, setEditCouponInfo] = useState(null)
   const [editCouponLoading, setEditCouponLoading] = useState(false)
   const [editInitialPayment, setEditInitialPayment] = useState('')
-  const [editInitialPaymentMethod, setEditInitialPaymentMethod] = useState('cash')
+  const [editInitialPaymentMethod, setEditInitialPaymentMethod] =
+    useState('cash')
   const [editNumInstallments, setEditNumInstallments] = useState('none')
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [form, setForm] = useState(emptyForm)
@@ -378,6 +415,7 @@ export default function StudentManagement() {
           qualification: enq.qualification || '',
           course: courseId,
         }))
+        enquiryIdRef.current = enq._id || null
         setCouponInfo(null)
         setFinalFees(0)
         setErrors({})
@@ -454,7 +492,12 @@ export default function StudentManagement() {
       (d) => d.couponCode === e.target.value,
     )
     if (!selected) {
-      setForm((f) => ({ ...f, couponCode: '', numInstallments: 'none' }))
+      setForm((f) => ({
+        ...f,
+        couponCode: '',
+        numInstallments: 'none',
+        initialPayment: '0',
+      }))
       setCouponInfo(null)
       setFinalFees(Number(form.totalFees))
       return
@@ -604,6 +647,8 @@ export default function StudentManagement() {
       )
       if (form.couponCode.trim())
         formData.append('couponCode', form.couponCode.trim())
+      if (enquiryIdRef.current)
+        formData.append('enquiryId', enquiryIdRef.current)
       formData.append('courseDuration', Number(form.courseDuration) || 3)
       formData.append('admissionDate', form.admissionDate || '')
       formData.append('installments', JSON.stringify(installments))
@@ -621,6 +666,7 @@ export default function StudentManagement() {
         const name = `${data.student.firstName}_${data.student.lastName}`
         downloadInvoice(data.student._id, name)
       }
+      enquiryIdRef.current = null
       showAlert('success', 'Student added successfully!')
       setShowModal(false)
       setForm(emptyForm)
@@ -724,9 +770,18 @@ export default function StudentManagement() {
   }
 
   const buildEditInstallments = () => {
-    const total = editCouponInfo ? editCouponInfo.finalFees : Number(editForm.totalFees || 0)
+    const total = editCouponInfo
+      ? editCouponInfo.finalFees
+      : Number(editForm.totalFees || 0)
     if (editNumInstallments === 'none') {
-      return [{ installmentNumber: 1, amount: total, dueDate: new Date().toISOString().split('T')[0], status: 'pending' }]
+      return [
+        {
+          installmentNumber: 1,
+          amount: total,
+          dueDate: new Date().toISOString().split('T')[0],
+          status: 'pending',
+        },
+      ]
     }
     const n = parseInt(editNumInstallments) || 1
     const each = Math.floor(total / n)
@@ -738,7 +793,7 @@ export default function StudentManagement() {
         installmentNumber: i + 1,
         amount: i === n - 1 ? each + remainder : each,
         dueDate: dueDate.toISOString().split('T')[0],
-        status: 'pending'
+        status: 'pending',
       }
     })
   }
@@ -758,7 +813,9 @@ export default function StudentManagement() {
     }))
     setEditCouponInfo({
       amount: selected.amount,
-      finalFees: Number(editForm.totalFees) - Math.min(selected.amount, Number(editForm.totalFees)),
+      finalFees:
+        Number(editForm.totalFees) -
+        Math.min(selected.amount, Number(editForm.totalFees)),
       discountAmount: Math.min(selected.amount, Number(editForm.totalFees)),
     })
     // Coupon = full payment only — reset installments
@@ -777,7 +834,10 @@ export default function StudentManagement() {
       })
       setEditCouponInfo(data)
       setEditNumInstallments('none') // coupon = full payment only
-      showAlert('success', `Coupon applied! ₹${data.amount} off → Final: ₹${data.finalFees.toLocaleString('en-IN')}`)
+      showAlert(
+        'success',
+        `Coupon applied! ₹${data.amount} off → Final: ₹${data.finalFees.toLocaleString('en-IN')}`,
+      )
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Invalid coupon')
     } finally {
@@ -825,9 +885,13 @@ export default function StudentManagement() {
 
       // Only send payment fields if user explicitly changed them
       const originalPaidFees = selectedStudent.paidFees || 0
-      const originalInstallmentsLength = selectedStudent.installments?.length || 0
-      
-      if (Number(editInitialPayment) !== originalPaidFees || parseInt(editNumInstallments) !== originalInstallmentsLength) {
+      const originalInstallmentsLength =
+        selectedStudent.installments?.length || 0
+
+      if (
+        Number(editInitialPayment) !== originalPaidFees ||
+        parseInt(editNumInstallments) !== originalInstallmentsLength
+      ) {
         formData.append('initialPayment', Number(editInitialPayment) || 0)
         formData.append('initialPaymentMethod', editInitialPaymentMethod)
         formData.append('installments', JSON.stringify(buildEditInstallments()))
@@ -840,9 +904,13 @@ export default function StudentManagement() {
       if (editDocs.aadharCard)
         formData.append('aadharCard', editDocs.aadharCard)
 
-      const { data: editData } = await api.put(`/students/${selectedStudent._id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      const { data: editData } = await api.put(
+        `/students/${selectedStudent._id}`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        },
+      )
 
       if (selectedStudent?._id) {
         const name = `${editForm.firstName}_${editForm.lastName}`
@@ -972,21 +1040,29 @@ export default function StudentManagement() {
     setEditDocs(emptyDocs)
     setEditPreviews(emptyPreviews)
     setEditErrors({})
-    setEditCouponInfo(student.discount ? {
-      amount: student.discount.amount,
-      finalFees: student.finalFees || student.totalFees,
-      discountAmount: (student.totalFees - (student.finalFees || student.totalFees)),
-    } : null)
-    
+    setEditCouponInfo(
+      student.discount
+        ? {
+            amount: student.discount.amount,
+            finalFees: student.finalFees || student.totalFees,
+            discountAmount:
+              student.totalFees - (student.finalFees || student.totalFees),
+          }
+        : null,
+    )
+
     // Set payment fields from existing student data
-    const numInstallments = student.installments?.length > 0 ? String(student.installments.length) : 'none'
+    const numInstallments =
+      student.installments?.length > 0
+        ? String(student.installments.length)
+        : 'none'
     setEditNumInstallments(numInstallments)
     setEditInitialPayment(String(student.paidFees || 0))
-    
+
     // Get payment method from most recent payment or default to cash
     const lastPayment = student.payments?.[student.payments.length - 1]
     setEditInitialPaymentMethod(lastPayment?.paymentMethod || 'cash')
-    
+
     setShowEditModal(true)
   }
 
@@ -1137,8 +1213,17 @@ export default function StudentManagement() {
                 <tbody>
                   {paginated.map((s, idx) => (
                     <tr key={s._id}>
-                      <td data-label="#" style={{ textAlign: 'center', color: 'var(--gray-500)', fontSize: '0.85rem', fontWeight: 600 }}>
-                      {filtered.length - ((page - 1) * PER_PAGE + idx)} </td>                                                                 
+                      <td
+                        data-label="#"
+                        style={{
+                          textAlign: 'center',
+                          color: 'var(--gray-500)',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {filtered.length - ((page - 1) * PER_PAGE + idx)}{' '}
+                      </td>
                       <td data-label="Student">
                         <div className="td-name">
                           {s.firstName} {s.fatherName} {s.lastName}
@@ -1155,7 +1240,16 @@ export default function StudentManagement() {
                         <div className="td-sub">{s.courseDuration}m</div>
                       </td>
                       <td data-label="Admission Date">
-                        {s.enrollmentDate ? new Date(s.enrollmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                        {s.enrollmentDate
+                          ? new Date(s.enrollmentDate).toLocaleDateString(
+                              'en-IN',
+                              {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              },
+                            )
+                          : '—'}
                       </td>
                       <td data-label="Total">
                         {fmt(s.finalFees || s.totalFees)}
@@ -1234,7 +1328,7 @@ export default function StudentManagement() {
                             ✏️ Edit
                           </button>
                         )}
-                         {/*<button
+                        {/*<button
                            className="btn btn-sm btn-danger"
                            onClick={() => handleDelete(s._id)}
                          >
@@ -1294,7 +1388,10 @@ export default function StudentManagement() {
               <h3 className="modal-title">➕ Add New Student</h3>
               <button
                 className="modal-close"
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  enquiryIdRef.current = null
+                  setShowModal(false)
+                }}
               >
                 ✕
               </button>
@@ -1487,14 +1584,13 @@ export default function StudentManagement() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">
-                      Course Fees (₹) <span className="required">*</span>
-                    </label>
+                    <label className="form-label">Course Fees (₹)</label>
                     <input
                       type="number"
                       className={`form-input ${errors.totalFees ? 'error' : ''}`}
                       placeholder="Total fees"
                       value={form.totalFees}
+                      disabled={true}
                       onChange={(e) => {
                         setForm({ ...form, totalFees: e.target.value })
                         setFinalFees(Number(e.target.value))
@@ -1505,7 +1601,7 @@ export default function StudentManagement() {
                       <span className="form-error">{errors.totalFees}</span>
                     )}
                   </div>
-                  
+
                   <div className="form-group">
                     {/* Issue #4: Discount dropdown */}
                     <label className="form-label">Discount Coupon</label>
@@ -1914,7 +2010,10 @@ export default function StudentManagement() {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    enquiryIdRef.current = null
+                    setShowModal(false)
+                  }}
                 >
                   Cancel
                 </button>
@@ -2072,21 +2171,21 @@ export default function StudentManagement() {
                   alignItems: 'center',
                   gap: '0.75rem',
                 }}
-                >
-                  <h3 className="modal-title">👤 Student Details</h3>
-                  {!selectedStudent.certificateIssued && (
-                    <button
-                      className="btn btn-sm btn-warning"
-                      onClick={() => {
-                        setShowDetailModal(false)
-                        openEdit(selectedStudent)
-                      }}
-                      style={{ marginLeft: 'auto' }}
-                    >
-                      ✏️ Edit
-                    </button>
-                  )}
-                </div>
+              >
+                <h3 className="modal-title">👤 Student Details</h3>
+                {!selectedStudent.certificateIssued && (
+                  <button
+                    className="btn btn-sm btn-warning"
+                    onClick={() => {
+                      setShowDetailModal(false)
+                      openEdit(selectedStudent)
+                    }}
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    ✏️ Edit
+                  </button>
+                )}
+              </div>
               <button
                 className="modal-close"
                 onClick={() => setShowDetailModal(false)}
@@ -2169,7 +2268,13 @@ export default function StudentManagement() {
                   </div>
                   <div>
                     {selectedStudent.enrollmentDate
-                      ? new Date(selectedStudent.enrollmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                      ? new Date(
+                          selectedStudent.enrollmentDate,
+                        ).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })
                       : '—'}
                   </div>
                 </div>
@@ -2917,10 +3022,9 @@ export default function StudentManagement() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">
-                      Course Fees (₹) <span className="required">*</span>
-                    </label>
+                    <label className="form-label">Course Fees (₹)</label>
                     <input
+                      disabled={true}
                       type="number"
                       className={`form-input ${editErrors.totalFees ? 'error' : ''}`}
                       placeholder="Total fees"
@@ -2948,8 +3052,12 @@ export default function StudentManagement() {
                   </div>
                   {selectedStudent.discount && (
                     <div className="form-group">
-                      <div className="discount-badge" style={{ marginBottom: '0.5rem' }}>
-                        🏷️ Applied: {selectedStudent.discount.couponCode} (₹{selectedStudent.discount.amount} off)
+                      <div
+                        className="discount-badge"
+                        style={{ marginBottom: '0.5rem' }}
+                      >
+                        🏷️ Applied: {selectedStudent.discount.couponCode} (₹
+                        {selectedStudent.discount.amount} off)
                       </div>
                     </div>
                   )}
@@ -2994,7 +3102,9 @@ export default function StudentManagement() {
                         className="btn btn-outline"
                         onClick={validateEditCoupon}
                         disabled={
-                          editCouponLoading || !editForm.couponCode || !editForm.totalFees
+                          editCouponLoading ||
+                          !editForm.couponCode ||
+                          !editForm.totalFees
                         }
                       >
                         {editCouponLoading ? '...' : 'Apply'}
@@ -3022,16 +3132,25 @@ export default function StudentManagement() {
                       className="form-input"
                       placeholder="Amount paid now"
                       min="0"
-                      max={editCouponInfo ? editCouponInfo.finalFees : editForm.totalFees}
+                      max={
+                        editCouponInfo
+                          ? editCouponInfo.finalFees
+                          : editForm.totalFees
+                      }
                       step="1"
                       value={editInitialPayment}
                       onChange={(e) => {
                         const val = Number(e.target.value)
-                        const maxFees = editCouponInfo ? editCouponInfo.finalFees : Number(editForm.totalFees || 0)
+                        const maxFees = editCouponInfo
+                          ? editCouponInfo.finalFees
+                          : Number(editForm.totalFees || 0)
                         if (val <= maxFees)
                           setEditInitialPayment(e.target.value)
                         else
-                          showAlert('error', `Initial payment cannot exceed total fees (₹${maxFees.toLocaleString('en-IN')})`)
+                          showAlert(
+                            'error',
+                            `Initial payment cannot exceed total fees (₹${maxFees.toLocaleString('en-IN')})`,
+                          )
                       }}
                     />
                     <span className="form-hint">
@@ -3049,7 +3168,9 @@ export default function StudentManagement() {
                     <select
                       className="form-select"
                       value={editInitialPaymentMethod}
-                      onChange={(e) => setEditInitialPaymentMethod(e.target.value)}
+                      onChange={(e) =>
+                        setEditInitialPaymentMethod(e.target.value)
+                      }
                     >
                       {PAYMENT_METHODS.map((m) => (
                         <option key={m} value={m}>
@@ -3072,7 +3193,8 @@ export default function StudentManagement() {
                           fontWeight: 600,
                         }}
                       >
-                        🔒 Installments not available with discount — Full payment required
+                        🔒 Installments not available with discount — Full
+                        payment required
                       </div>
                     ) : (
                       <select
@@ -3081,31 +3203,43 @@ export default function StudentManagement() {
                         onChange={(e) => {
                           const val = e.target.value
                           const total = Number(editForm.totalFees || 0)
-                          const auto = val === 'none' ? String(total) : String(Math.floor(total / (parseInt(val) || 1)))
+                          const auto =
+                            val === 'none'
+                              ? String(total)
+                              : String(Math.floor(total / (parseInt(val) || 1)))
                           setEditNumInstallments(val)
                           setEditInitialPayment(auto)
                         }}
                       >
                         <option value="none">None (Full payment now)</option>
                         <option value="1">1 Installment</option>
-                        {[1, 2, 3, 4, 6, 12].filter(n => n > 1).map(n => (
-                          <option key={n} value={n}>{n} installments</option>
-                        ))}
+                        {[1, 2, 3, 4, 6, 12]
+                          .filter((n) => n > 1)
+                          .map((n) => (
+                            <option key={n} value={n}>
+                              {n} installments
+                            </option>
+                          ))}
                       </select>
                     )}
                     <span className="form-hint">
                       {editCouponInfo ? (
-                        <span style={{ color: '#b45309', fontWeight: 600 }}>✓ Full discounted amount auto-filled above</span>
+                        <span style={{ color: '#b45309', fontWeight: 600 }}>
+                          ✓ Full discounted amount auto-filled above
+                        </span>
                       ) : editNumInstallments === 'none' ? (
-                          <span style={{ color: 'var(--primary)', fontWeight: 600 }}>✓ Full fees collected upfront</span>
-                        ) : (
-                          `≈ ₹${Math.floor(Number(editForm.totalFees || 0) / Number(editNumInstallments)).toLocaleString('en-IN')} per installment`
-                        )
-                      }
+                        <span
+                          style={{ color: 'var(--primary)', fontWeight: 600 }}
+                        >
+                          ✓ Full fees collected upfront
+                        </span>
+                      ) : (
+                        `≈ ₹${Math.floor(Number(editForm.totalFees || 0) / Number(editNumInstallments)).toLocaleString('en-IN')} per installment`
+                      )}
                     </span>
                   </div>
 
-                 <div
+                  <div
                     style={{ gridColumn: '1 / -1' }}
                     className="form-section-title"
                   >

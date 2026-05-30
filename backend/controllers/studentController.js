@@ -1,6 +1,7 @@
 const fs   = require('fs');
 const path = require('path');
 const Student = require('../models/Student');
+const Enquiry = require('../models/Enquiry');
 const Counter = require('../models/Counter');
 const { generateInvoice } = require('../utils/invoiceGenerator');
 
@@ -24,7 +25,8 @@ exports.addStudent = async (req, res) => {
     const {
       firstName, fatherName, lastName, certificateName, phoneNumber, email,
       address, qualification, course, totalFees, paidFees,
-      initialPaymentMethod, couponCode, courseDuration, admissionDate, installments
+      initialPaymentMethod, couponCode, courseDuration, admissionDate, installments,
+      enquiryId
     } = req.body;
 
     const existing = await Student.findOne({ phoneNumber });
@@ -126,6 +128,15 @@ exports.addStudent = async (req, res) => {
       populated.invoiceUrl = invoice.filePath;
       await populated.save();
       invoiceResult = { url: invoice.filePath, fileName: invoice.fileName };
+    }
+
+    // If created from an enquiry, mark it as converted
+    if (enquiryId) {
+      await Enquiry.findByIdAndUpdate(enquiryId, {
+        status: 'converted',
+        convertedToStudent: populated._id,
+        convertedAt: new Date()
+      });
     }
 
     res.status(201).json({
@@ -246,6 +257,11 @@ exports.updateStudent = async (req, res) => {
     // Mark as edited
     student.edited = true;
 
+    // Clear old invoice so it gets regenerated with updated data
+    student.invoiceUrl = undefined;
+    student.invoiceNumber = undefined;
+    student.invoiceGenerated = false;
+
     if (req.files) {
       const files = req.files;
       if (files.studentPhoto && files.studentPhoto[0]) {
@@ -291,19 +307,38 @@ exports.addPayment = async (req, res) => {
     if (Number(amount) <= 0) return res.status(400).json({ message: 'Payment amount must be greater than 0' });
     if (student.paidFees + Number(amount) > student.finalFees) return res.status(400).json({ message: 'Payment exceeds total fees' });
 
+    const paymentAmount = Number(amount);
+
     let targetInstallmentId = installmentId;
     if (!targetInstallmentId && student.installments.length > 0) {
       const nextPending = student.installments.find(i => i.status === 'pending' || i.status === 'overdue');
       if (nextPending) targetInstallmentId = nextPending._id;
     }
 
-    student.payments.push({ amount: Number(amount), paymentMethod: paymentMethod || 'cash', remarks, receivedBy: req.user._id, installmentId: targetInstallmentId });
-    student.paidFees += Number(amount);
-
+    // Only mark installment as paid if the payment covers its full amount
+    let markInstallmentAsPaid = false;
     if (targetInstallmentId) {
+      const inst = student.installments.id(targetInstallmentId);
+      if (inst && paymentAmount >= inst.amount) {
+        markInstallmentAsPaid = true;
+      } else if (inst) {
+        // Payment is less than installment amount — don't link to installment
+        targetInstallmentId = undefined;
+      }
+    }
+
+    student.payments.push({ amount: paymentAmount, paymentMethod: paymentMethod || 'cash', remarks, receivedBy: req.user._id, installmentId: targetInstallmentId });
+    student.paidFees += paymentAmount;
+
+    if (markInstallmentAsPaid && targetInstallmentId) {
       const inst = student.installments.id(targetInstallmentId);
       if (inst) { inst.status = 'paid'; inst.paidDate = new Date(); }
     }
+
+    // Clear old invoice so it gets regenerated with fresh data
+    student.invoiceUrl = undefined;
+    student.invoiceNumber = undefined;
+    student.invoiceGenerated = false;
 
     await student.save();
     const updated = await Student.findById(student._id)
@@ -314,6 +349,7 @@ exports.addPayment = async (req, res) => {
     const invoice = await generateInvoice(updated, invoiceNumber);
     updated.invoiceNumber = invoiceNumber;
     updated.invoiceUrl = invoice.filePath;
+    updated.invoiceGenerated = true;
     await updated.save();
 
     res.json({ student: updated, invoice: { url: invoice.filePath, fileName: invoice.fileName } });
