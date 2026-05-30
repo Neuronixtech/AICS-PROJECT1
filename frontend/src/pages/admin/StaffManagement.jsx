@@ -2,13 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../utils/api';
 
 const emptyForm = { name: '', email: '', password: '' };
+const emptyEditForm = { name: '', email: '' };
 
 export default function StaffManagement() {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
+  const [editForm, setEditForm] = useState(emptyEditForm);
+  const [editErrors, setEditErrors] = useState({});
   const [passwordData, setPasswordData] = useState({ password: '', confirmPassword: '' });
   const [passwordErrors, setPasswordErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -50,6 +54,38 @@ export default function StaffManagement() {
       setForm(emptyForm);
       fetchStaff();
     } catch (err) { showAlert('error', err.response?.data?.message || 'Error'); }
+    finally { setSubmitting(false); }
+  };
+
+  const openEdit = (staffMember) => {
+    setSelectedStaff(staffMember);
+    setEditForm({ name: staffMember.name || '', email: staffMember.email || '' });
+    setEditErrors({});
+    setShowEditModal(true);
+  };
+
+  const validateEdit = () => {
+    const e = {};
+    if (!editForm.name.trim()) e.name = 'Required';
+    if (!editForm.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) e.email = 'Valid email required';
+    setEditErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateEdit()) return;
+    setSubmitting(true);
+    try {
+      await api.put(`/admin/staff/${selectedStaff._id}`, {
+        name: editForm.name.trim(),
+        email: editForm.email.trim()
+      });
+      showAlert('success', 'Staff member updated!');
+      setShowEditModal(false);
+      setSelectedStaff(null);
+      fetchStaff();
+    } catch (err) { showAlert('error', err.response?.data?.message || 'Failed to update'); }
     finally { setSubmitting(false); }
   };
 
@@ -132,7 +168,8 @@ export default function StaffManagement() {
                         <td data-label="Joined">{s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-IN') : '-'}</td>
                         <td data-label="Status"><span className={`badge ${s.isActive !== false ? 'badge-success' : 'badge-gray'}`}>{s.isActive !== false ? '✅ Active' : '⛔ Inactive'}</span></td>
                         <td className="td-actions" data-label="Actions">
-                          <button className="btn btn-sm btn-outline" onClick={() => openPasswordModal(s)} title="Change Password">✏️</button>
+                          <button className="btn btn-sm btn-outline" onClick={() => openEdit(s)} title="Edit">✏️</button>
+                          <button className="btn btn-sm btn-outline" onClick={() => openPasswordModal(s)} title="Change Password">🔑</button>
                           <button className="btn btn-sm btn-danger" onClick={() => handleRemove(s._id)}>Remove</button>
                         </td>
                       </tr>
@@ -174,6 +211,37 @@ export default function StaffManagement() {
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? '...' : '✅ Add Centre'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && selectedStaff && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowEditModal(false)}>
+          <div className="modal modal-sm">
+            <div className="modal-header">
+              <h3 className="modal-title">👤 Edit Centre</h3>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleEditSubmit}>
+              <div className="modal-body">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Full Name <span className="required">*</span></label>
+                    <input className={`form-input ${editErrors.name?'error':''}`} placeholder="Centre name" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+                    {editErrors.name && <span className="form-error">{editErrors.name}</span>}
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Email <span className="required">*</span></label>
+                    <input type="email" className={`form-input ${editErrors.email?'error':''}`} placeholder="centre@institute.com" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} />
+                    {editErrors.email && <span className="form-error">{editErrors.email}</span>}
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline" onClick={() => setShowEditModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? '...' : '✅ Update Centre'}</button>
               </div>
             </form>
           </div>
