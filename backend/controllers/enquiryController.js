@@ -187,19 +187,29 @@ exports.downloadEnquiryPdf = async (req, res) => {
 
     // ── COURSE INTEREST ────────────────────────────────────────────────────
     y = sectionTitle('COURSE INTEREST', y);
-    doc.rect(40, y, PW, 52).fillAndStroke('#f8fafc', '#e2e8f0');
-    y += 8;
+    const subjects = (course.subjects || []).filter(Boolean);
+    const descText = course.description || 'N/A';
+    const descH = doc.fontSize(9).font('Helvetica').heightOfString(descText, { width: PW - 20, lineGap: 2 });
+    const CONTENT_TOP = 8, ROW_H = 28, SUBJECTS_H = subjects.length ? 28 : 0, DESC_LABEL_H = 10, DESC_BOTTOM = 14;
+    const boxY = y;
+    const boxH = CONTENT_TOP + ROW_H + SUBJECTS_H + DESC_LABEL_H + descH + DESC_BOTTOM;
+    doc.rect(40, boxY, PW, boxH).fillAndStroke('#f8fafc', '#e2e8f0');
+    y = boxY + CONTENT_TOP;
     row('Course Name', course.name || 'N/A', 50, y, 200);
     row('Duration', course.duration ? `${course.duration} Month${course.duration > 1 ? 's' : ''}` : 'N/A', 230, y, 140);
     row('Fees', course.fees ? `Rs.${Number(course.fees).toLocaleString('en-IN')}` : 'N/A', 390, y, 140);
-    y += 28;
-    const subjects = (course.subjects || []).filter(Boolean);
+    y += ROW_H;
     if (subjects.length) {
       doc.fontSize(7.5).fillColor('#6b7280').font('Helvetica').text('SUBJECTS / MODULES', 50, y);
       doc.fontSize(8).fillColor('#1e40af').font('Helvetica-Bold')
          .text(subjects.join('  |  '), 50, y + 10, { width: PW - 20 });
+      y += SUBJECTS_H;
     }
-    y += 28;
+    doc.fontSize(7.5).fillColor('#6b7280').font('Helvetica').text('DESCRIPTION', 50, y);
+    y += DESC_LABEL_H;
+    doc.fontSize(9).fillColor('#1e293b').font('Helvetica')
+       .text(descText, 50, y, { width: PW - 20, lineGap: 2 });
+    y += descH + DESC_BOTTOM;
 
     // ── FOLLOW-UP DETAILS ──────────────────────────────────────────────────
     y = sectionTitle('FOLLOW-UP DETAILS', y);
