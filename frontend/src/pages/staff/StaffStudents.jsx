@@ -766,6 +766,7 @@ export default function StaffStudents() {
         'address',
         'qualification',
         'phoneNumber',
+        'aadhaarNumber',
         'email',
       ].forEach((k) => fd.append(k, form[k].trim()))
       fd.append('course', form.course)
@@ -1108,6 +1109,7 @@ export default function StaffStudents() {
       fd.append('address', editForm.address.trim())
       fd.append('qualification', editForm.qualification.trim())
       fd.append('phoneNumber', editForm.phoneNumber.trim())
+      fd.append('aadhaarNumber', editForm.aadhaarNumber.trim())
       fd.append('email', editForm.email.trim())
       fd.append('course', editForm.course)
       fd.append('totalFees', Number(editForm.totalFees))

@@ -23,7 +23,7 @@ const cleanupUploadedFiles = (req) => {
 exports.addStudent = async (req, res) => {
   try {
     const {
-      firstName, fatherName, lastName, certificateName, phoneNumber, email,
+      firstName, fatherName, lastName, certificateName, phoneNumber, aadhaarNumber, email,
       address, qualification, course, totalFees, paidFees,
       initialPaymentMethod, couponCode, courseDuration, admissionDate, installments,
       enquiryId
@@ -33,6 +33,12 @@ exports.addStudent = async (req, res) => {
     if (existing) {
       cleanupUploadedFiles(req);
       return res.status(400).json({ message: 'A student with this phone number already exists' });
+    }
+
+    const existingAadhaar = await Student.findOne({ aadhaarNumber: req.body.aadhaarNumber });
+    if (existingAadhaar) {
+      cleanupUploadedFiles(req);
+      return res.status(400).json({ message: 'A student with this aadhaar number already exists' });
     }
 
     let discountData = null;
@@ -80,7 +86,7 @@ exports.addStudent = async (req, res) => {
 
     const student = await Student.create({
       firstName, fatherName, lastName, certificateName,
-      phoneNumber, email, address, qualification,
+      phoneNumber, aadhaarNumber, email, address, qualification,
       course, totalFees: Number(totalFees),
       discount: discountData,
       finalFees,
@@ -183,7 +189,7 @@ exports.updateStudent = async (req, res) => {
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    const fields = ['firstName','fatherName','lastName','certificateName','phoneNumber','email','address','qualification','course','totalFees','status','courseDuration','courseCompleted','grade','certificateNumber'];
+    const fields = ['firstName','fatherName','lastName','certificateName','phoneNumber','aadhaarNumber','email','address','qualification','course','totalFees','status','courseDuration','courseCompleted','grade','certificateNumber'];
     fields.forEach(f => { if (req.body[f] !== undefined) student[f] = req.body[f]; });
 
     if (req.body.admissionDate) {
