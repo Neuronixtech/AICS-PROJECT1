@@ -286,6 +286,7 @@ const emptyForm = {
   address: '',
   qualification: '',
   phoneNumber: '',
+  aadhaarNumber: '',
   email: '',
   course: '',
   couponCode: '',
@@ -570,6 +571,8 @@ export default function StudentManagement() {
     if (!form.firstName.trim()) e.firstName = 'Required'
     if (!form.phoneNumber.match(/^[0-9]{10}$/))
       e.phoneNumber = 'Enter valid 10-digit number'
+    if (!form.aadhaarNumber.match(/^[0-9]{12}$/))
+      e.aadhaarNumber = 'Enter valid 12-digit aadhaar number'
     if (!form.address.trim()) e.address = 'Required'
     if (!form.qualification.trim()) e.qualification = 'Required'
     if (!form.course) e.course = 'Select a course'
@@ -852,6 +855,8 @@ export default function StudentManagement() {
     // if (!editForm.lastName.trim()) e.lastName = 'Required';
     if (!editForm.phoneNumber.match(/^[0-9]{10}$/))
       e.phoneNumber = 'Enter valid 10-digit number'
+    if (!editForm.aadhaarNumber.match(/^[0-9]{12}$/))
+      e.aadhaarNumber = 'Enter valid 12-digit aadhaar number'
     if (!editForm.address.trim()) e.address = 'Required'
     if (!editForm.qualification.trim()) e.qualification = 'Required'
     if (!editForm.course) e.course = 'Select a course'
@@ -1481,6 +1486,26 @@ export default function StudentManagement() {
                     />
                     {errors.phoneNumber && (
                       <span className="form-error">{errors.phoneNumber}</span>
+                    )}
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Aadhaar Number <span className="required">*</span>
+                    </label>
+                    <input
+                      className={`form-input ${errors.aadhaarNumber ? 'error' : ''}`}
+                      placeholder="12-digit aadhaar number"
+                      maxLength={12}
+                      value={form.aadhaarNumber}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          aadhaarNumber: e.target.value.replace(/\D/g, ''),
+                        })
+                      }
+                    />
+                    {errors.aadhaarNumber && (
+                      <span className="form-error">{errors.aadhaarNumber}</span>
                     )}
                   </div>
                   <div className="form-group">
@@ -2911,6 +2936,28 @@ export default function StudentManagement() {
                     {editErrors.phoneNumber && (
                       <span className="form-error">
                         {editErrors.phoneNumber}
+                      </span>
+                    )}
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      Aadhaar Number <span className="required">*</span>
+                    </label>
+                    <input
+                      className={`form-input ${editErrors.aadhaarNumber ? 'error' : ''}`}
+                      placeholder="12-digit aadhaar number"
+                      maxLength={12}
+                      value={editForm.aadhaarNumber}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          aadhaarNumber: e.target.value.replace(/\D/g, ''),
+                        })
+                      }
+                    />
+                    {editErrors.aadhaarNumber && (
+                      <span className="form-error">
+                        {editErrors.aadhaarNumber}
                       </span>
                     )}
                   </div>
