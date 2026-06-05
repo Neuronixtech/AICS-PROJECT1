@@ -366,6 +366,7 @@ export default function StudentManagement() {
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [duplicateData, setDuplicateData] = useState(null)
+  const [upgradeTarget, setUpgradeTarget] = useState(null)
   const [upgradeForm, setUpgradeForm] = useState({
     newCourse: '',
     newDuration: '',
@@ -1047,6 +1048,7 @@ export default function StudentManagement() {
       lastName: student.lastName || '',
       certificateName: student.certificateName || '',
       phoneNumber: student.phoneNumber || '',
+      aadhaarNumber: student.aadhaarNumber || '',
       email: student.email || '',
       address: student.address || '',
       qualification: student.qualification || '',
@@ -1092,14 +1094,15 @@ export default function StudentManagement() {
   }
 
   // Upgrade course handlers
-  const openUpgradeModal = () => {
+  const openUpgradeModal = (student) => {
     setShowUpgradeConfirm(false)
-    const student = duplicateData
-    const currentCourseId = typeof student.course === 'object' ? student.course._id : student.course
+    const target = student || duplicateData
+    setUpgradeTarget(target)
+    const currentCourseId = typeof target.course === 'object' ? target.course._id : target.course
     setUpgradeForm({
       newCourse: currentCourseId,
-      newDuration: String(student.courseDuration || ''),
-      newFees: String(student.finalFees || student.totalFees || ''),
+      newDuration: String(target.courseDuration || ''),
+      newFees: String(target.finalFees || target.totalFees || ''),
       paidFees: '0',
       paymentMethod: 'cash',
     })
@@ -1118,10 +1121,10 @@ export default function StudentManagement() {
 
   const handleUpgradeSubmit = async (e) => {
     e.preventDefault()
-    if (!duplicateData) return
+    if (!upgradeTarget) return
     setSubmitting(true)
     try {
-      const { data } = await api.put(`/students/${duplicateData._id}/upgrade`, {
+      const { data } = await api.put(`/students/${upgradeTarget._id}/upgrade`, {
         newCourse: upgradeForm.newCourse,
         newDuration: Number(upgradeForm.newDuration),
         newFees: Number(upgradeForm.newFees),
@@ -1132,6 +1135,7 @@ export default function StudentManagement() {
       setShowUpgradeModal(false)
       setShowUpgradeConfirm(false)
       setDuplicateData(null)
+      setUpgradeTarget(null)
       setShowModal(false)
       setForm(emptyForm)
       setCouponInfo(null)
@@ -1411,6 +1415,13 @@ export default function StudentManagement() {
                             ✏️ Edit
                           </button>
                         )}
+                        <button
+                          className="btn btn-sm btn-info"
+                          onClick={() => openUpgradeModal(s)}
+                          title="Upgrade course"
+                        >
+                          🚀 Upgrade
+                        </button>
                         {/*<button
                            className="btn btn-sm btn-danger"
                            onClick={() => handleDelete(s._id)}
@@ -3719,14 +3730,17 @@ export default function StudentManagement() {
       )}
 
       {/* UPGRADE COURSE MODAL */}
-      {showUpgradeModal && duplicateData && (
+      {showUpgradeModal && upgradeTarget && (
         <div className="modal-overlay">
           <div className="modal modal-sm">
             <div className="modal-header">
               <h3 className="modal-title">🔄 Upgrade Course</h3>
               <button
                 className="modal-close"
-                onClick={() => setShowUpgradeModal(false)}
+                onClick={() => {
+                  setShowUpgradeModal(false)
+                  setUpgradeTarget(null)
+                }}
               >
                 ✕
               </button>
@@ -3742,8 +3756,8 @@ export default function StudentManagement() {
                   }}
                 >
                   <div style={{ fontWeight: 600 }}>
-                    {duplicateData.firstName} {duplicateData.fatherName}{' '}
-                    {duplicateData.lastName}
+                    {upgradeTarget.firstName} {upgradeTarget.fatherName}{' '}
+                    {upgradeTarget.lastName}
                   </div>
                   <div
                     style={{
@@ -3754,10 +3768,10 @@ export default function StudentManagement() {
                   >
                     Current Course:{' '}
                     <strong>
-                      {duplicateData.course?.name ||
-                        duplicateData.course?.toString()}
+                      {upgradeTarget.course?.name ||
+                        upgradeTarget.course?.toString()}
                     </strong>{' '}
-                    ({duplicateData.courseDuration}m)
+                    ({upgradeTarget.courseDuration}m)
                   </div>
                   <div
                     style={{
@@ -3765,9 +3779,9 @@ export default function StudentManagement() {
                       color: 'var(--gray-500)',
                     }}
                   >
-                    Already Paid: <strong>₹{(duplicateData.paidFees || 0).toLocaleString('en-IN')}</strong>
+                    Already Paid: <strong>₹{(upgradeTarget.paidFees || 0).toLocaleString('en-IN')}</strong>
                   </div>
-                  {duplicateData.certificateNumber && (
+                  {upgradeTarget.certificateNumber && (
                     <div
                       style={{
                         fontSize: '0.85rem',
@@ -3775,7 +3789,7 @@ export default function StudentManagement() {
                       }}
                     >
                       Certificate #:{' '}
-                      <strong>{duplicateData.certificateNumber}</strong>
+                      <strong>{upgradeTarget.certificateNumber}</strong>
                     </div>
                   )}
                 </div>
@@ -3874,7 +3888,10 @@ export default function StudentManagement() {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => setShowUpgradeModal(false)}
+                  onClick={() => {
+                    setShowUpgradeModal(false)
+                    setUpgradeTarget(null)
+                  }}
                 >
                   Cancel
                 </button>
