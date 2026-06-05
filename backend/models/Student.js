@@ -77,7 +77,19 @@ const studentSchema = new mongoose.Schema({
   invoiceUrl:       String,
 
   addedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+
+  // Course upgrade audit trail
+  courseUpgrades: [{
+    previousCourse:  { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+    previousDuration: Number,
+    previousFees: Number,
+    newCourse:  { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+    newDuration: Number,
+    newFees: Number,
+    upgradedAt: { type: Date, default: Date.now },
+    upgradedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  }]
 });
 
 studentSchema.virtual('fullName').get(function() {

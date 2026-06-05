@@ -503,6 +503,18 @@ export default function StaffStudents() {
   const [uploadDocModal, setUploadDocModal] = useState(emptyDocs)
   const [uploadDocPreviews, setUploadDocPreviews] = useState(emptyPreviews)
 
+  // Upgrade flow state
+  const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [duplicateData, setDuplicateData] = useState(null)
+  const [upgradeForm, setUpgradeForm] = useState({
+    newCourse: '',
+    newDuration: '',
+    newFees: '',
+    paidFees: '0',
+    paymentMethod: 'cash',
+  })
+
   /* ── Data fetching ─────────────────────────────────────────────────────── */
   const fetchStudents = useCallback(async () => {
     try {
@@ -802,7 +814,13 @@ export default function StaffStudents() {
       setPreviews(emptyPreviews)
       fetchStudents()
     } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Failed to add student')
+      const errData = err.response?.data
+      if (errData?.code === 'DUPLICATE_AADHAAR') {
+        setDuplicateData(errData.existingStudent)
+        setShowUpgradeConfirm(true)
+      } else {
+        showAlert('error', errData?.message || 'Failed to add student')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -1170,6 +1188,61 @@ export default function StaffStudents() {
     }
   }
 
+  // Upgrade course handlers
+  const openUpgradeModal = () => {
+    setShowUpgradeConfirm(false)
+    const student = duplicateData
+    const currentCourseId = typeof student.course === 'object' ? student.course._id : student.course
+    setUpgradeForm({
+      newCourse: currentCourseId,
+      newDuration: String(student.courseDuration || ''),
+      newFees: String(student.finalFees || student.totalFees || ''),
+      paidFees: '0',
+      paymentMethod: 'cash',
+    })
+    setShowUpgradeModal(true)
+  }
+
+  const handleUpgradeCourseChange = (courseId) => {
+    const course = courses.find((c) => c._id === courseId)
+    setUpgradeForm((f) => ({
+      ...f,
+      newCourse: courseId,
+      newDuration: course ? String(course.duration || '') : '',
+      newFees: course ? String(course.fees || course.defaultFees || '') : '',
+    }))
+  }
+
+  const handleUpgradeSubmit = async (e) => {
+    e.preventDefault()
+    if (!duplicateData) return
+    setSubmitting(true)
+    try {
+      const { data } = await api.put(`/students/${duplicateData._id}/upgrade`, {
+        newCourse: upgradeForm.newCourse,
+        newDuration: Number(upgradeForm.newDuration),
+        newFees: Number(upgradeForm.newFees),
+        paidFees: Number(upgradeForm.paidFees) || 0,
+        paymentMethod: upgradeForm.paymentMethod,
+      })
+      showAlert('success', 'Course upgraded successfully!')
+      setShowUpgradeModal(false)
+      setShowUpgradeConfirm(false)
+      setDuplicateData(null)
+      setShowModal(false)
+      setForm(emptyForm)
+      setCouponInfo(null)
+      setFinalFees(0)
+      setDocs(emptyDocs)
+      setPreviews(emptyPreviews)
+      fetchStudents()
+    } catch (err) {
+      showAlert('error', err.response?.data?.message || 'Failed to upgrade course')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const fmt = (n) => `₹${(n || 0).toLocaleString('en-IN')}`
   const getDocUrl = (s, field) =>
     s[field]?.fileUrl
@@ -1339,6 +1412,9 @@ export default function StaffStudents() {
                       <td data-label="Course">
                         <div>{s.course?.name}</div>
                         <div className="td-sub">{s.courseDuration}m</div>
+                        {s.courseUpgrades?.length > 0 && (
+                          <span className="badge badge-info" style={{ marginTop: 2, fontSize: '0.7rem' }}>Upgraded</span>
+                        )}
                       </td>
                       <td data-label="Admission Date">
                         {s.enrollmentDate
@@ -3485,6 +3561,269 @@ export default function StaffStudents() {
           onCrop={(file) => handleEditCropApply(editCropModal.field, file)}
           onClose={() => setEditCropModal(null)}
         />
+      )}
+
+      {/* ── UPGRADE CONFIRMATION MODAL ────────────────────────────────────── */}
+      {showUpgradeConfirm && duplicateData && (
+        <div
+          className="modal-overlay"
+          onClick={(e) =>
+            e.target === e.currentTarget && setShowUpgradeConfirm(false)
+          }
+        >
+          <div className="modal modal-sm">
+            <div className="modal-header">
+              <h3 className="modal-title">🔄 Aadhaar Already Registered</h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowUpgradeConfirm(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div
+                style={{
+                  padding: '1rem',
+                  background: '#fef3c7',
+                  border: '1px solid #f59e0b',
+                  borderRadius: 'var(--radius-sm)',
+                  marginBottom: '1rem',
+                }}
+              >
+                <strong>Aadhaar {form.aadhaarNumber}</strong> is already
+                registered to:
+              </div>
+              <div
+                style={{
+                  padding: '1rem',
+                  background: 'var(--gray-50)',
+                  borderRadius: 'var(--radius-sm)',
+                  marginBottom: '1rem',
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                  {duplicateData.firstName} {duplicateData.fatherName}{' '}
+                  {duplicateData.lastName}
+                </div>
+                <div
+                  style={{ color: 'var(--gray-500)', marginTop: '0.25rem' }}
+                >
+                  {duplicateData.phoneNumber}
+                </div>
+                <div
+                  style={{
+                    marginTop: '0.5rem',
+                    padding: '0.5rem',
+                    background: '#e0f2fe',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  Currently enrolled in{' '}
+                  <strong>
+                    {duplicateData.course?.name ||
+                      duplicateData.course?.toString()}
+                  </strong>{' '}
+                  ({duplicateData.courseDuration} months)
+                </div>
+              </div>
+              <p>
+                Would you like to upgrade their course instead of creating a
+                duplicate record?
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn btn-outline"
+                onClick={() => {
+                  setShowUpgradeConfirm(false)
+                  setDuplicateData(null)
+                }}
+              >
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={openUpgradeModal}>
+                🔄 Upgrade Course
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── UPGRADE COURSE MODAL ─────────────────────────────────────────── */}
+      {showUpgradeModal && duplicateData && (
+        <div className="modal-overlay">
+          <div className="modal modal-sm">
+            <div className="modal-header">
+              <h3 className="modal-title">🔄 Upgrade Course</h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowUpgradeModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleUpgradeSubmit}>
+              <div className="modal-body">
+                <div
+                  style={{
+                    padding: '0.75rem',
+                    background: 'var(--gray-50)',
+                    borderRadius: 'var(--radius-sm)',
+                    marginBottom: '1rem',
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>
+                    {duplicateData.firstName} {duplicateData.fatherName}{' '}
+                    {duplicateData.lastName}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.85rem',
+                      color: 'var(--gray-500)',
+                      marginTop: '0.25rem',
+                    }}
+                  >
+                    Current Course:{' '}
+                    <strong>
+                      {duplicateData.course?.name ||
+                        duplicateData.course?.toString()}
+                    </strong>{' '}
+                    ({duplicateData.courseDuration}m)
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.85rem',
+                      color: 'var(--gray-500)',
+                    }}
+                  >
+                    Already Paid:{' '}
+                    <strong>
+                      ₹{(duplicateData.paidFees || 0).toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+                  {duplicateData.certificateNumber && (
+                    <div
+                      style={{
+                        fontSize: '0.85rem',
+                        color: 'var(--gray-500)',
+                      }}
+                    >
+                      Certificate #:{' '}
+                      <strong>{duplicateData.certificateNumber}</strong>
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    New Course <span className="required">*</span>
+                  </label>
+                  <select
+                    className="form-select"
+                    value={upgradeForm.newCourse}
+                    onChange={(e) => handleUpgradeCourseChange(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Course</option>
+                    {courses.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.name} — ₹
+                        {(c.fees || c.defaultFees || 0).toLocaleString('en-IN')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">
+                    Duration (months) <span className="required">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={upgradeForm.newDuration}
+                    readOnly
+                    style={{
+                      background: '#f3f4f6',
+                      cursor: 'not-allowed',
+                    }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">
+                    New Course Fees (₹) <span className="required">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={upgradeForm.newFees}
+                    readOnly
+                    style={{
+                      background: '#f3f4f6',
+                      cursor: 'not-allowed',
+                    }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Initial Payment (₹)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    placeholder="Amount paid now"
+                    min="0"
+                    max={upgradeForm.newFees}
+                    value={upgradeForm.paidFees}
+                    onChange={(e) =>
+                      setUpgradeForm({
+                        ...upgradeForm,
+                        paidFees: e.target.value,
+                      })
+                    }
+                  />
+                  <span className="form-hint">
+                    Start fresh with new course's full fee
+                  </span>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment Method</label>
+                  <select
+                    className="form-select"
+                    value={upgradeForm.paymentMethod}
+                    onChange={(e) =>
+                      setUpgradeForm({
+                        ...upgradeForm,
+                        paymentMethod: e.target.value,
+                      })
+                    }
+                  >
+                    {PAYMENT_METHODS.map((m) => (
+                      <option key={m} value={m}>
+                        {m.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowUpgradeModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submitting || !upgradeForm.newCourse}
+                >
+                  {submitting ? '⏳ Upgrading...' : '🔄 Upgrade Course'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )

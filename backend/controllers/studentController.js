@@ -29,16 +29,35 @@ exports.addStudent = async (req, res) => {
       enquiryId
     } = req.body;
 
+    // Check Aadhaar first — duplicate gets upgrade prompt (takes priority over phone)
+    const existingAadhaar = await Student.findOne({ aadhaarNumber: req.body.aadhaarNumber }).populate('course', 'name duration fees');
+    if (existingAadhaar) {
+      cleanupUploadedFiles(req);
+      return res.status(409).json({
+        code: 'DUPLICATE_AADHAAR',
+        message: 'A student with this aadhaar number already exists',
+        existingStudent: {
+          _id: existingAadhaar._id,
+          firstName: existingAadhaar.firstName,
+          fatherName: existingAadhaar.fatherName,
+          lastName: existingAadhaar.lastName,
+          phoneNumber: existingAadhaar.phoneNumber,
+          course: existingAadhaar.course,
+          courseDuration: existingAadhaar.courseDuration,
+          totalFees: existingAadhaar.totalFees,
+          finalFees: existingAadhaar.finalFees,
+          paidFees: existingAadhaar.paidFees,
+          enrollmentDate: existingAadhaar.enrollmentDate,
+          certificateNumber: existingAadhaar.certificateNumber,
+          certificateIssued: existingAadhaar.certificateIssued
+        }
+      });
+    }
+
     const existing = await Student.findOne({ phoneNumber });
     if (existing) {
       cleanupUploadedFiles(req);
       return res.status(400).json({ message: 'A student with this phone number already exists' });
-    }
-
-    const existingAadhaar = await Student.findOne({ aadhaarNumber: req.body.aadhaarNumber });
-    if (existingAadhaar) {
-      cleanupUploadedFiles(req);
-      return res.status(400).json({ message: 'A student with this aadhaar number already exists' });
     }
 
     let discountData = null;
@@ -441,6 +460,79 @@ exports.downloadInvoice = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     fs.createReadStream(absPath).pipe(res);
 
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ── PUT /students/:id/upgrade ───────────────────────────────────────────
+exports.upgradeCourse = async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    const { newCourse, newDuration, newFees, paidFees, paymentMethod } = req.body;
+
+    if (!newCourse || !newDuration || !newFees) {
+      return res.status(400).json({ message: 'New course, duration, and fees are required' });
+    }
+
+    const upgradeEntry = {
+      previousCourse: student.course,
+      previousDuration: student.courseDuration,
+      previousFees: student.finalFees,
+      newCourse,
+      newDuration: Number(newDuration),
+      newFees: Number(newFees),
+      upgradedAt: new Date(),
+      upgradedBy: req.user._id
+    };
+
+    const Course = require('../models/Course');
+    await Course.findByIdAndUpdate(student.course, { $inc: { enrolledCount: -1 } });
+    await Course.findByIdAndUpdate(newCourse, { $inc: { enrolledCount: 1 } });
+
+    const newTotalFees = Number(newFees);
+    const initialPayment = Math.min(Number(paidFees) || 0, newTotalFees);
+
+    student.courseUpgrades.push(upgradeEntry);
+    student.course = newCourse;
+    student.courseDuration = Number(newDuration);
+    student.totalFees = newTotalFees;
+    student.discount = null;
+    student.finalFees = newTotalFees;
+    student.paidFees = initialPayment;
+    student.installments = [];
+    student.payments = [];
+
+    student.certificateIssued = false;
+    student.certificateIssuedDate = undefined;
+    student.certificateEligible = false;
+
+    if (student.enrollmentDate) {
+      const end = new Date(student.enrollmentDate);
+      end.setMonth(end.getMonth() + Number(newDuration));
+      student.courseEndDate = end;
+    }
+
+    if (initialPayment > 0) {
+      student.payments.push({
+        amount: initialPayment,
+        paymentMethod: paymentMethod || 'cash',
+        remarks: 'Upgrade initial payment',
+        receivedBy: req.user._id
+      });
+    }
+
+    await student.save();
+
+    const populated = await Student.findById(student._id)
+      .populate('course', 'name duration fees')
+      .populate('addedBy', 'name')
+      .populate('courseUpgrades.previousCourse', 'name')
+      .populate('courseUpgrades.newCourse', 'name');
+
+    res.json({ message: 'Course upgraded successfully', student: populated });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
