@@ -471,7 +471,7 @@ exports.upgradeCourse = async (req, res) => {
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    const { newCourse, newDuration, newFees, paidFees, paymentMethod } = req.body;
+    const { newCourse, newDuration, newFees, paidFees, paymentMethod, couponCode, admissionDate, installments } = req.body;
 
     if (!newCourse || !newDuration || !newFees) {
       return res.status(400).json({ message: 'New course, duration, and fees are required' });
@@ -493,27 +493,66 @@ exports.upgradeCourse = async (req, res) => {
     await Course.findByIdAndUpdate(newCourse, { $inc: { enrolledCount: 1 } });
 
     const newTotalFees = Number(newFees);
-    const initialPayment = Math.min(Number(paidFees) || 0, newTotalFees);
+
+    // Apply discount if coupon code provided
+    let discountData = null;
+    let finalFees = newTotalFees;
+    if (couponCode) {
+      const Discount = require('../models/Discount');
+      const coupon = await Discount.findOne({ couponCode: couponCode.toUpperCase() });
+      if (!coupon || !coupon.isValid()) {
+        return res.status(400).json({ message: 'Invalid or expired coupon code' });
+      }
+      const applied = coupon.applyDiscount(newTotalFees);
+      finalFees = applied.finalFees;
+      discountData = { couponCode: coupon.couponCode, amount: coupon.amount, appliedAmount: applied.discountAmount };
+      await coupon.incrementUsage();
+    }
+
+    const initialPayment = Math.min(Number(paidFees) || 0, finalFees);
+
+    // Build installments
+    let installmentData = [];
+    if (installments && Array.isArray(installments)) {
+      installmentData = installments.map((inst, i) => {
+        const obj = {
+          installmentNumber: i + 1,
+          amount: inst.amount,
+          dueDate: new Date(inst.dueDate),
+          status: 'pending'
+        };
+        if (i === 0 && initialPayment > 0 && initialPayment >= inst.amount) {
+          obj.status = 'paid';
+          obj.paidDate = new Date();
+        }
+        return obj;
+      });
+    }
+
+    // Update enrollment date if provided
+    if (admissionDate) {
+      student.enrollmentDate = new Date(admissionDate);
+    }
 
     student.courseUpgrades.push(upgradeEntry);
     student.course = newCourse;
     student.courseDuration = Number(newDuration);
     student.totalFees = newTotalFees;
-    student.discount = null;
-    student.finalFees = newTotalFees;
+    student.discount = discountData;
+    student.finalFees = finalFees;
     student.paidFees = initialPayment;
-    student.installments = [];
+    student.pendingFees = Math.max(0, finalFees - initialPayment);
+    student.installments = installmentData;
     student.payments = [];
 
     student.certificateIssued = false;
     student.certificateIssuedDate = undefined;
     student.certificateEligible = false;
 
-    if (student.enrollmentDate) {
-      const end = new Date(student.enrollmentDate);
-      end.setMonth(end.getMonth() + Number(newDuration));
-      student.courseEndDate = end;
-    }
+    // Recalculate course end date from enrollmentDate
+    const end = new Date(student.enrollmentDate);
+    end.setMonth(end.getMonth() + Number(newDuration));
+    student.courseEndDate = end;
 
     if (initialPayment > 0) {
       student.payments.push({

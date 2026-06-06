@@ -504,17 +504,11 @@ export default function StaffStudents() {
   const [uploadDocPreviews, setUploadDocPreviews] = useState(emptyPreviews)
 
   // Upgrade flow state
+  const [isUpgradeMode, setIsUpgradeMode] = useState(false)
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [duplicateData, setDuplicateData] = useState(null)
   const [upgradeTarget, setUpgradeTarget] = useState(null)
-  const [upgradeForm, setUpgradeForm] = useState({
-    newCourse: '',
-    newDuration: '',
-    newFees: '',
-    paidFees: '0',
-    paymentMethod: 'cash',
-  })
 
   /* ── Data fetching ─────────────────────────────────────────────────────── */
   const fetchStudents = useCallback(async () => {
@@ -711,15 +705,15 @@ export default function StaffStudents() {
 
   const validate = () => {
     const e = {}
-    if (!form.firstName.trim()) e.firstName = 'Required'
-    // if (!form.fatherName.trim()) e.fatherName = 'Required';
-    // if (!form.lastName.trim()) e.lastName = 'Required';
-    if (!form.phoneNumber.match(/^[0-9]{10}$/))
-      e.phoneNumber = 'Enter valid 10-digit number'
-    if (!form.aadhaarNumber.match(/^[0-9]{12}$/))
-      e.aadhaarNumber = 'Enter valid 12-digit aadhaar number'
-    if (!form.address.trim()) e.address = 'Required'
-    if (!form.qualification.trim()) e.qualification = 'Required'
+    if (!isUpgradeMode) {
+      if (!form.firstName.trim()) e.firstName = 'Required'
+      if (!form.phoneNumber.match(/^[0-9]{10}$/))
+        e.phoneNumber = 'Enter valid 10-digit number'
+      if (!form.aadhaarNumber.match(/^[0-9]{12}$/))
+        e.aadhaarNumber = 'Enter valid 12-digit aadhaar number'
+      if (!form.address.trim()) e.address = 'Required'
+      if (!form.qualification.trim()) e.qualification = 'Required'
+    }
     if (!form.course) e.course = 'Select a course'
     if (!form.totalFees) e.totalFees = 'Required'
     // Coupon applied: must pay full discounted amount upfront
@@ -763,8 +757,26 @@ export default function StaffStudents() {
     setPreviews((p) => ({ ...p, [field]: null }))
   }
 
+  const resetFormState = () => {
+    enquiryIdRef.current = null
+    setShowModal(false)
+    setForm(emptyForm)
+    setCouponInfo(null)
+    setFinalFees(0)
+    setDocs(emptyDocs)
+    setPreviews(emptyPreviews)
+    setIsUpgradeMode(false)
+    setUpgradeTarget(null)
+    setDuplicateData(null)
+    setShowUpgradeConfirm(false)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isUpgradeMode) {
+      await handleUpgradeSubmit()
+      return
+    }
     if (!validate()) return
     setSubmitting(true)
     try {
@@ -807,12 +819,7 @@ export default function StaffStudents() {
         )
       enquiryIdRef.current = null
       showAlert('success', 'Student added successfully!')
-      setShowModal(false)
-      setForm(emptyForm)
-      setCouponInfo(null)
-      setFinalFees(0)
-      setDocs(emptyDocs)
-      setPreviews(emptyPreviews)
+      resetFormState()
       fetchStudents()
     } catch (err) {
       const errData = err.response?.data
@@ -1196,49 +1203,51 @@ export default function StaffStudents() {
     const target = student || duplicateData
     setUpgradeTarget(target)
     const currentCourseId = typeof target.course === 'object' ? target.course._id : target.course
-    setUpgradeForm({
-      newCourse: currentCourseId,
-      newDuration: String(target.courseDuration || ''),
-      newFees: String(target.finalFees || target.totalFees || ''),
-      paidFees: '0',
-      paymentMethod: 'cash',
+    setIsUpgradeMode(true)
+    setForm({
+      ...emptyForm,
+      firstName: target.firstName || '',
+      fatherName: target.fatherName || '',
+      lastName: target.lastName || '',
+      certificateName: target.certificateName || '',
+      phoneNumber: target.phoneNumber || '',
+      aadhaarNumber: target.aadhaarNumber || '',
+      email: target.email || '',
+      address: target.address || '',
+      qualification: target.qualification || '',
+      course: currentCourseId,
+      totalFees: String(target.finalFees || target.totalFees || ''),
+      courseDuration: String(target.courseDuration || ''),
     })
-    setShowUpgradeModal(true)
+    setCouponInfo(null)
+    setFinalFees(target.finalFees || target.totalFees || 0)
+    setErrors({})
+    setDocs(emptyDocs)
+    setPreviews(emptyPreviews)
+    setShowModal(true)
   }
 
-  const handleUpgradeCourseChange = (courseId) => {
-    const course = courses.find((c) => c._id === courseId)
-    setUpgradeForm((f) => ({
-      ...f,
-      newCourse: courseId,
-      newDuration: course ? String(course.duration || '') : '',
-      newFees: course ? String(course.fees || course.defaultFees || '') : '',
-    }))
-  }
-
-  const handleUpgradeSubmit = async (e) => {
-    e.preventDefault()
+  const handleUpgradeSubmit = async () => {
     if (!upgradeTarget) return
+    if (!validate()) { setSubmitting(false); return }
     setSubmitting(true)
     try {
+      const installments = buildInstallments()
       const { data } = await api.put(`/students/${upgradeTarget._id}/upgrade`, {
-        newCourse: upgradeForm.newCourse,
-        newDuration: Number(upgradeForm.newDuration),
-        newFees: Number(upgradeForm.newFees),
-        paidFees: Number(upgradeForm.paidFees) || 0,
-        paymentMethod: upgradeForm.paymentMethod,
+        newCourse: form.course,
+        newDuration: Number(form.courseDuration),
+        newFees: Number(form.totalFees),
+        paidFees: Number(form.initialPayment) || 0,
+        paymentMethod: form.initialPaymentMethod || 'cash',
+        couponCode: form.couponCode || '',
+        admissionDate: form.admissionDate || '',
+        installments,
       })
       showAlert('success', 'Course upgraded successfully!')
-      setShowUpgradeModal(false)
-      setShowUpgradeConfirm(false)
-      setDuplicateData(null)
-      setUpgradeTarget(null)
-      setShowModal(false)
-      setForm(emptyForm)
-      setCouponInfo(null)
-      setFinalFees(0)
-      setDocs(emptyDocs)
-      setPreviews(emptyPreviews)
+      if (data.student?.paidFees > 0) {
+        downloadInvoice(data.student._id, `${data.student.firstName}_${data.student.lastName}`)
+      }
+      resetFormState()
       fetchStudents()
     } catch (err) {
       showAlert('error', err.response?.data?.message || 'Failed to upgrade course')
@@ -1408,8 +1417,7 @@ export default function StaffStudents() {
                         <div className="td-sub">{s.phoneNumber}</div>
                         {s.discount?.couponCode && (
                           <div className="td-sub">
-                            🏷️ {s.discount.couponCode} ({s.discount.percentage}
-                            %)
+                            🏷️ {s.discount.couponCode} (₹{s.discount.appliedAmount || s.discount.amount})
                           </div>
                         )}
                       </td>
@@ -1559,17 +1567,19 @@ export default function StaffStudents() {
         )}
       </div>
 
-      {/* ── ADD STUDENT MODAL ──────────────────────────────────────────────── */}
+      {/* ── ADD STUDENT / UPGRADE MODAL ──────────────────────────────────── */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal modal-lg">
             <div className="modal-header">
-              <h3 className="modal-title">➕ Add New Student</h3>
+              <h3 className="modal-title">
+                {isUpgradeMode ? '🔄 Upgrade Course' : '➕ Add New Student'}
+              </h3>
               <button
                 className="modal-close"
                 onClick={() => {
                   enquiryIdRef.current = null
-                  setShowModal(false)
+                  resetFormState()
                 }}
               >
                 ✕
@@ -1577,6 +1587,29 @@ export default function StaffStudents() {
             </div>
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
+                {isUpgradeMode && upgradeTarget && (
+                  <div
+                    style={{
+                      padding: '0.75rem 1rem',
+                      marginBottom: '1rem',
+                      background: '#eef2ff',
+                      border: '1px solid #6366f1',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.875rem',
+                      color: '#4338ca',
+                    }}
+                  >
+                    Upgrading:{' '}
+                    <strong>
+                      {upgradeTarget.firstName} {upgradeTarget.fatherName}{' '}
+                      {upgradeTarget.lastName}
+                    </strong>{' '}
+                    — Current:{' '}
+                    {upgradeTarget.course?.name || 'N/A'} (
+                    {upgradeTarget.courseDuration}m) — Paid: ₹
+                    {(upgradeTarget.paidFees || 0).toLocaleString('en-IN')}
+                  </div>
+                )}
                 <div className="form-grid">
                   <div
                     style={{ gridColumn: '1 / -1' }}
@@ -1592,6 +1625,7 @@ export default function StaffStudents() {
                       className={`form-input ${errors.firstName ? 'error' : ''}`}
                       placeholder="e.g. Rahul"
                       value={form.firstName}
+                      disabled={isUpgradeMode}
                       onChange={(e) =>
                         setForm({ ...form, firstName: e.target.value })
                       }
@@ -1606,6 +1640,7 @@ export default function StaffStudents() {
                       className={`form-input ${errors.fatherName ? 'error' : ''}`}
                       placeholder="e.g. Suresh"
                       value={form.fatherName}
+                      disabled={isUpgradeMode}
                       onChange={(e) =>
                         setForm({ ...form, fatherName: e.target.value })
                       }
@@ -1620,6 +1655,7 @@ export default function StaffStudents() {
                       className={`form-input ${errors.lastName ? 'error' : ''}`}
                       placeholder="e.g. Kumar"
                       value={form.lastName}
+                      disabled={isUpgradeMode}
                       onChange={(e) =>
                         setForm({ ...form, lastName: e.target.value })
                       }
@@ -1634,6 +1670,7 @@ export default function StaffStudents() {
                       className="form-input"
                       placeholder="Name as it should appear on certificate (optional)"
                       value={form.certificateName}
+                      disabled={isUpgradeMode}
                       onChange={(e) =>
                         setForm({ ...form, certificateName: e.target.value })
                       }
@@ -1651,6 +1688,7 @@ export default function StaffStudents() {
                       placeholder="10-digit"
                       maxLength={10}
                       value={form.phoneNumber}
+                      disabled={isUpgradeMode}
                       onChange={(e) =>
                         setForm({
                           ...form,
@@ -1671,6 +1709,7 @@ export default function StaffStudents() {
                       placeholder="12-digit aadhaar number"
                       maxLength={12}
                       value={form.aadhaarNumber}
+                      disabled={isUpgradeMode}
                       onChange={(e) =>
                         setForm({
                           ...form,
@@ -1689,6 +1728,7 @@ export default function StaffStudents() {
                       className="form-input"
                       placeholder="Optional"
                       value={form.email}
+                      disabled={isUpgradeMode}
                       onChange={(e) =>
                         setForm({ ...form, email: e.target.value })
                       }
@@ -1702,6 +1742,7 @@ export default function StaffStudents() {
                       className={`form-input ${errors.qualification ? 'error' : ''}`}
                       placeholder="e.g. B.Tech CSE"
                       value={form.qualification}
+                      disabled={isUpgradeMode}
                       onChange={(e) =>
                         setForm({
                           ...form,
@@ -1725,6 +1766,7 @@ export default function StaffStudents() {
                       placeholder="Full address"
                       rows={2}
                       value={form.address}
+                      disabled={isUpgradeMode}
                       onChange={(e) =>
                         setForm({ ...form, address: e.target.value })
                       }
@@ -2036,58 +2078,59 @@ export default function StaffStudents() {
                     </span>
                   </div>
 
-                  <div
-                    style={{ gridColumn: '1 / -1' }}
-                    className="form-section-title"
-                  >
-                    Document Uploads
-                  </div>
-                  <DocFieldRow
-                    field="studentPhoto"
-                    label="🖼️ Student Photo"
-                    hint="Clear passport-size photo (JPG, PNG) · Max 1 MB"
-                    accept="image/jpeg,image/jpg,image/png"
-                    preview={previews.studentPhoto}
-                    docFile={docs.studentPhoto}
-                    onChange={handleDocChange}
-                    cameraOk={true}
-                    onCamera={setCameraField}
-                    onDelete={handleDocDelete}
-                  />
-                  <DocFieldRow
-                    field="qualificationDoc"
-                    label="📜 Qualification Document"
-                    hint="Mark sheet, degree or certificate (JPG, PNG, PDF) · Max 1 MB"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    preview={previews.qualificationDoc}
-                    docFile={docs.qualificationDoc}
-                    onChange={handleDocChange}
-                    cameraOk={true}
-                    onCamera={setCameraField}
-                    onDelete={handleDocDelete}
-                  />
-                  <DocFieldRow
-                    field="aadharCard"
-                    label="🪪 Aadhar Card"
-                    hint="Front side of Aadhar card (JPG, PNG) · Max 1 MB"
-                    accept="image/jpeg,image/jpg,image/png"
-                    preview={previews.aadharCard}
-                    docFile={docs.aadharCard}
-                    onChange={handleDocChange}
-                    cameraOk={true}
-                    onCamera={setCameraField}
-                    onDelete={handleDocDelete}
-                  />
+                  {!isUpgradeMode && (
+                    <>
+                      <div
+                        style={{ gridColumn: '1 / -1' }}
+                        className="form-section-title"
+                      >
+                        Document Uploads
+                      </div>
+                      <DocFieldRow
+                        field="studentPhoto"
+                        label="🖼️ Student Photo"
+                        hint="Clear passport-size photo (JPG, PNG) · Max 1 MB"
+                        accept="image/jpeg,image/jpg,image/png"
+                        preview={previews.studentPhoto}
+                        docFile={docs.studentPhoto}
+                        onChange={handleDocChange}
+                        cameraOk={true}
+                        onCamera={setCameraField}
+                        onDelete={handleDocDelete}
+                      />
+                      <DocFieldRow
+                        field="qualificationDoc"
+                        label="📜 Qualification Document"
+                        hint="Mark sheet, degree or certificate (JPG, PNG, PDF) · Max 1 MB"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        preview={previews.qualificationDoc}
+                        docFile={docs.qualificationDoc}
+                        onChange={handleDocChange}
+                        cameraOk={true}
+                        onCamera={setCameraField}
+                        onDelete={handleDocDelete}
+                      />
+                      <DocFieldRow
+                        field="aadharCard"
+                        label="🪪 Aadhar Card"
+                        hint="Front side of Aadhar card (JPG, PNG) · Max 1 MB"
+                        accept="image/jpeg,image/jpg,image/png"
+                        preview={previews.aadharCard}
+                        docFile={docs.aadharCard}
+                        onChange={handleDocChange}
+                        cameraOk={true}
+                        onCamera={setCameraField}
+                        onDelete={handleDocDelete}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
               <div className="modal-footer">
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => {
-                    enquiryIdRef.current = null
-                    setShowModal(false)
-                  }}
+                  onClick={resetFormState}
                 >
                   Cancel
                 </button>
@@ -2096,7 +2139,11 @@ export default function StaffStudents() {
                   className="btn btn-primary"
                   disabled={submitting}
                 >
-                  {submitting ? '⏳ Adding...' : '✅ Student Admission'}
+                  {submitting
+                    ? '⏳ Saving...'
+                    : isUpgradeMode
+                      ? '🔄 Upgrade Course'
+                      : '✅ Student Admission'}
                 </button>
               </div>
             </form>
@@ -3143,8 +3190,8 @@ export default function StaffStudents() {
                         className="discount-badge"
                         style={{ marginBottom: '0.5rem' }}
                       >
-                        🏷️ Applied: {selectedStudent.discount.couponCode} (
-                        {selectedStudent.discount.percentage}% off)
+                        🏷️ Applied: {selectedStudent.discount.couponCode} (₹
+                        {selectedStudent.discount.appliedAmount || selectedStudent.discount.amount} off)
                       </div>
                     </div>
                   )}
@@ -3580,11 +3627,11 @@ export default function StaffStudents() {
       )}
 
       {/* ── UPGRADE CONFIRMATION MODAL ────────────────────────────────────── */}
-      {showUpgradeConfirm && duplicateData && (
+      {!isUpgradeMode && showUpgradeConfirm && duplicateData && (
         <div
           className="modal-overlay"
           onClick={(e) =>
-            e.target === e.currentTarget && setShowUpgradeConfirm(false)
+            e.target === e.currentTarget && resetFormState()
           }
         >
           <div className="modal modal-sm">
@@ -3592,7 +3639,7 @@ export default function StaffStudents() {
               <h3 className="modal-title">🔄 Aadhaar Already Registered</h3>
               <button
                 className="modal-close"
-                onClick={() => setShowUpgradeConfirm(false)}
+                onClick={resetFormState}
               >
                 ✕
               </button>
@@ -3652,10 +3699,7 @@ export default function StaffStudents() {
             <div className="modal-footer">
               <button
                 className="btn btn-outline"
-                onClick={() => {
-                  setShowUpgradeConfirm(false)
-                  setDuplicateData(null)
-                }}
+                onClick={resetFormState}
               >
                 Cancel
               </button>
@@ -3663,187 +3707,6 @@ export default function StaffStudents() {
                 🔄 Upgrade Course
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── UPGRADE COURSE MODAL ─────────────────────────────────────────── */}
-      {showUpgradeModal && upgradeTarget && (
-        <div className="modal-overlay">
-          <div className="modal modal-sm">
-            <div className="modal-header">
-              <h3 className="modal-title">🔄 Upgrade Course</h3>
-              <button
-                className="modal-close"
-                onClick={() => {
-                  setShowUpgradeModal(false)
-                  setUpgradeTarget(null)
-                }}
-              >
-                ✕
-              </button>
-            </div>
-            <form onSubmit={handleUpgradeSubmit}>
-              <div className="modal-body">
-                <div
-                  style={{
-                    padding: '0.75rem',
-                    background: 'var(--gray-50)',
-                    borderRadius: 'var(--radius-sm)',
-                    marginBottom: '1rem',
-                  }}
-                >
-                  <div style={{ fontWeight: 600 }}>
-                    {upgradeTarget.firstName} {upgradeTarget.fatherName}{' '}
-                    {upgradeTarget.lastName}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '0.85rem',
-                      color: 'var(--gray-500)',
-                      marginTop: '0.25rem',
-                    }}
-                  >
-                    Current Course:{' '}
-                    <strong>
-                      {upgradeTarget.course?.name ||
-                        upgradeTarget.course?.toString()}
-                    </strong>{' '}
-                    ({upgradeTarget.courseDuration}m)
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '0.85rem',
-                      color: 'var(--gray-500)',
-                    }}
-                  >
-                    Already Paid:{' '}
-                    <strong>
-                      ₹{(upgradeTarget.paidFees || 0).toLocaleString('en-IN')}
-                    </strong>
-                  </div>
-                  {upgradeTarget.certificateNumber && (
-                    <div
-                      style={{
-                        fontSize: '0.85rem',
-                        color: 'var(--gray-500)',
-                      }}
-                    >
-                      Certificate #:{' '}
-                      <strong>{upgradeTarget.certificateNumber}</strong>
-                    </div>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    New Course <span className="required">*</span>
-                  </label>
-                  <select
-                    className="form-select"
-                    value={upgradeForm.newCourse}
-                    onChange={(e) => handleUpgradeCourseChange(e.target.value)}
-                    required
-                  >
-                    <option value="">Select Course</option>
-                    {courses.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.name} — ₹
-                        {(c.fees || c.defaultFees || 0).toLocaleString('en-IN')}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">
-                    Duration (months) <span className="required">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={upgradeForm.newDuration}
-                    readOnly
-                    style={{
-                      background: '#f3f4f6',
-                      cursor: 'not-allowed',
-                    }}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">
-                    New Course Fees (₹) <span className="required">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={upgradeForm.newFees}
-                    readOnly
-                    style={{
-                      background: '#f3f4f6',
-                      cursor: 'not-allowed',
-                    }}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Initial Payment (₹)</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    placeholder="Amount paid now"
-                    min="0"
-                    max={upgradeForm.newFees}
-                    value={upgradeForm.paidFees}
-                    onChange={(e) =>
-                      setUpgradeForm({
-                        ...upgradeForm,
-                        paidFees: e.target.value,
-                      })
-                    }
-                  />
-                  <span className="form-hint">
-                    Start fresh with new course's full fee
-                  </span>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Payment Method</label>
-                  <select
-                    className="form-select"
-                    value={upgradeForm.paymentMethod}
-                    onChange={(e) =>
-                      setUpgradeForm({
-                        ...upgradeForm,
-                        paymentMethod: e.target.value,
-                      })
-                    }
-                  >
-                    {PAYMENT_METHODS.map((m) => (
-                      <option key={m} value={m}>
-                        {m.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => {
-                    setShowUpgradeModal(false)
-                    setUpgradeTarget(null)
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={submitting || !upgradeForm.newCourse}
-                >
-                  {submitting ? '⏳ Upgrading...' : '🔄 Upgrade Course'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
