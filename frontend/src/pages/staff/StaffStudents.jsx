@@ -1504,7 +1504,12 @@ export default function StaffStudents() {
                         <button
                           className="btn btn-sm btn-info"
                           onClick={() => openUpgradeModal(s)}
-                          title="Upgrade course"
+                          title={
+                            s.paidFees < (s.finalFees || s.totalFees)
+                              ? 'Complete fee payment before upgrading'
+                              : 'Upgrade course'
+                          }
+                          disabled={s.paidFees < (s.finalFees || s.totalFees)}
                         >
                           🚀 Upgrade
                         </button>
