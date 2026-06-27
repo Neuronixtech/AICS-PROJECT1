@@ -59,12 +59,6 @@ exports.addStudent = async (req, res) => {
       });
     }
 
-    const existing = await Student.findOne({ phoneNumber });
-    if (existing) {
-      cleanupUploadedFiles(req);
-      return res.status(400).json({ message: 'A student with this phone number already exists' });
-    }
-
     let discountData = null;
     let finalFees = Number(totalFees);
 
