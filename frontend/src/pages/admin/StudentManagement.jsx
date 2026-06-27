@@ -2000,7 +2000,7 @@ export default function StudentManagement() {
                           ✓ Full fees collected upfront
                         </span>
                       ) : (
-                        `≈ ₹${Math.floor((couponInfo ? couponInfo.finalFees : Number(form.totalFees)) / Number(form.numInstallments)).toLocaleString('en-IN')} per installment`
+                        (() => { const t = couponInfo ? couponInfo.finalFees : Number(form.totalFees); const n = Number(form.numInstallments); const e = Math.floor(t / n); const r = t - e * n; return `₹${e.toLocaleString('en-IN')}/installment${r ? ` (last: ₹${(e + r).toLocaleString('en-IN')})` : ''}` })()
                       )}
                     </span>
                   </div>
@@ -3421,7 +3421,7 @@ export default function StudentManagement() {
                           ✓ Full fees collected upfront
                         </span>
                       ) : (
-                        `≈ ₹${Math.floor(Number(editForm.totalFees || 0) / Number(editNumInstallments)).toLocaleString('en-IN')} per installment`
+                        (() => { const t = Number(editForm.totalFees || 0); const n = Number(editNumInstallments); const e = Math.floor(t / n); const r = t - e * n; return `₹${e.toLocaleString('en-IN')}/installment${r ? ` (last: ₹${(e + r).toLocaleString('en-IN')})` : ''}` })()
                       )}
                     </span>
                   </div>
@@ -3769,7 +3769,7 @@ export default function StudentManagement() {
               >
                 Cancel
               </button>
-              <button className="btn btn-primary" onClick={openUpgradeModal}>
+              <button className="btn btn-primary" onClick={() => openUpgradeModal()}>
                 🔄 Upgrade Course
               </button>
             </div>
