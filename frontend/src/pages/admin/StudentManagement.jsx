@@ -1418,14 +1418,12 @@ export default function StudentManagement() {
                         >
                           Pay
                         </button>
-                        {!s.certificateIssued && (
-                          <button
-                            className="btn btn-sm btn-primary"
-                            onClick={() => openEdit(s)}
-                          >
-                            ✏️ Edit
-                          </button>
-                        )}
+                        <button
+                          className="btn btn-sm btn-primary"
+                          onClick={() => openEdit(s)}
+                        >
+                          ✏️ Edit
+                        </button>
                         <button
                           className="btn btn-sm btn-info"
                           onClick={() => openUpgradeModal(s)}
@@ -2338,18 +2336,16 @@ export default function StudentManagement() {
                 }}
               >
                 <h3 className="modal-title">👤 Student Details</h3>
-                {!selectedStudent.certificateIssued && (
-                  <button
-                    className="btn btn-sm btn-warning"
-                    onClick={() => {
-                      setShowDetailModal(false)
-                      openEdit(selectedStudent)
-                    }}
-                    style={{ marginLeft: 'auto' }}
-                  >
-                    ✏️ Edit
-                  </button>
-                )}
+                <button
+                  className="btn btn-sm btn-warning"
+                  onClick={() => {
+                    setShowDetailModal(false)
+                    openEdit(selectedStudent)
+                  }}
+                  style={{ marginLeft: 'auto' }}
+                >
+                  ✏️ Edit
+                </button>
               </div>
               <button
                 className="modal-close"
