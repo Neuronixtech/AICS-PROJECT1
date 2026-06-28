@@ -153,24 +153,33 @@ function CameraModal({ label, onCapture, onClose }) {
   const [camError, setCamError] = useState('')
 
   useEffect(() => {
+    let cancelled = false
     ;(async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
           audio: false,
         })
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
         streamRef.current = stream
         if (videoRef.current) {
           videoRef.current.srcObject = stream
-          setReady(true)
+          videoRef.current.onloadedmetadata = () => {
+            if (!cancelled) setReady(true)
+          }
         }
       } catch {
-        setCamError(
-          'Camera access denied or unavailable. Please allow camera permissions in your browser and try again.',
-        )
+        if (!cancelled)
+          setCamError(
+            'Camera access denied or unavailable. Please allow camera permissions in your browser and try again.',
+          )
       }
     })()
     return () => {
+      cancelled = true
       if (streamRef.current)
         streamRef.current.getTracks().forEach((t) => t.stop())
     }
@@ -486,6 +495,7 @@ export default function StudentManagement() {
       totalFees: course ? String(course.fees || course.defaultFees || '') : '',
       courseDuration: course ? String(course.duration || '') : '',
       numInstallments: 'none',
+      initialPayment: '0',
     }))
     setCouponInfo(null)
     if (course) {
@@ -884,7 +894,7 @@ export default function StudentManagement() {
     // if (!editForm.lastName.trim()) e.lastName = 'Required';
     if (!editForm.phoneNumber.match(/^[0-9]{10}$/))
       e.phoneNumber = 'Enter valid 10-digit number'
-    if (!editForm.aadhaarNumber.match(/^[0-9]{12}$/))
+    if (editForm.aadhaarNumber && !editForm.aadhaarNumber.match(/^[0-9]{12}$/))
       e.aadhaarNumber = 'Enter valid 12-digit aadhaar number'
     if (!editForm.address.trim()) e.address = 'Required'
     if (!editForm.qualification.trim()) e.qualification = 'Required'

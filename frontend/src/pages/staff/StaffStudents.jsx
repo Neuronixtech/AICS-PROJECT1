@@ -657,7 +657,8 @@ export default function StaffStudents() {
   }
 
   const validateCoupon = async () => {
-    if (!form.couponCode.trim() || !form.totalFees) return
+    if (!form.couponCode.trim()) return
+    if (!form.totalFees) return showAlert('error', 'Select a course first')
     setCouponLoading(true)
     setCouponInfo(null)
     try {
@@ -858,12 +859,12 @@ export default function StaffStudents() {
           selectedStudent._id,
           `${selectedStudent.firstName}_${selectedStudent.lastName}`,
         )
-      showAlert('success', 'Payment recorded!')
+      showAlert('success', 'Payment recorded! Invoice downloaded.')
       setShowPaymentModal(false)
       setPaymentForm({ amount: '', paymentMethod: 'cash', remarks: '' })
       fetchStudents()
     } catch (err) {
-      showAlert('error', err.response?.data?.message || 'Failed')
+      showAlert('error', err.response?.data?.message || 'Failed to add payment')
     } finally {
       setSubmitting(false)
     }
@@ -912,13 +913,13 @@ export default function StaffStudents() {
       await api.post(`/students/${selectedStudent._id}/upload-document`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
-      showAlert('success', 'Documents uploaded!')
+      showAlert('success', 'Documents uploaded successfully!')
       setShowDocModal(false)
       setUploadDocModal(emptyDocs)
       setUploadDocPreviews(emptyPreviews)
       fetchStudents()
     } catch (err) {
-      showAlert('error', 'Upload failed')
+      showAlert('error', err.response?.data?.message || 'Failed to upload documents')
     } finally {
       setSubmitting(false)
     }
@@ -969,7 +970,7 @@ export default function StaffStudents() {
     setEditCouponInfo(
       student.discount
         ? {
-            percentage: student.discount.percentage,
+            amount: student.discount.amount,
             finalFees: student.finalFees || student.totalFees,
             discountAmount:
               student.totalFees - (student.finalFees || student.totalFees),
@@ -1112,7 +1113,7 @@ export default function StaffStudents() {
     // if (!editForm.lastName.trim()) e.lastName = 'Required';
     if (!editForm.phoneNumber.match(/^[0-9]{10}$/))
       e.phoneNumber = 'Enter valid 10-digit number'
-    if (!editForm.aadhaarNumber.match(/^[0-9]{12}$/))
+    if (editForm.aadhaarNumber && !editForm.aadhaarNumber.match(/^[0-9]{12}$/))
       e.aadhaarNumber = 'Enter valid 12-digit aadhaar number'
     if (!editForm.address.trim()) e.address = 'Required'
     if (!editForm.qualification.trim()) e.qualification = 'Required'
@@ -1480,6 +1481,14 @@ export default function StaffStudents() {
                         >
                           {s.status}
                         </span>
+                        {s.certificateEligible && !s.certificateIssued && (
+                          <span
+                            className="badge badge-purple"
+                            style={{ marginLeft: '4px' }}
+                          >
+                            🏆 Eligible
+                          </span>
+                        )}
                       </td>
                       <td className="td-actions" data-label="Actions">
                         <button
